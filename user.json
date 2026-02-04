@@ -1,0 +1,10 @@
+{
+    "jlpt_level": 4,
+    "userset": {
+        "char": {
+            "type": "single",
+            "last_learnt": "timestamp",
+            "last_q_type": "on/kun/pair"
+            }
+        }
+}
