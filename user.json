@@ -1,10 +1,358 @@
 {
     "jlpt_level": 4,
     "userset": {
-        "char": {
+        "安": {
             "type": "single",
-            "last_learnt": "timestamp",
-            "last_q_type": "on/kun/pair"
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "アン": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "時": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "ジ": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "何": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "カ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "nan"
+                }
+            }
+        },
+        "四": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "シ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "nishi"
+                }
+            }
+        },
+        "六": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "リク": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "ha"
+                }
+            }
+        },
+        "金": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "キン": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "母": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "ボ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "ha"
+                }
+            }
+        },
+        "十": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "ジュウ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "idk"
+                }
+            }
+        },
+        "駅": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to on",
+            "to on": {
+                "エキ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "wake"
+                }
+            }
+        },
+        "言": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "こと": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "i"
+                }
+            }
+        },
+        "話": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "はなし": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "雨": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "あめ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "ame-"
+                }
+            }
+        },
+        "円": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "まど": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "idk"
+                }
+            }
+        },
+        "耳": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "みみ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "ki"
+                }
+            }
+        },
+        "聞": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "き.く": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "kiku"
+                }
+            }
+        },
+        "先": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "ま.ず": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "saki"
+                }
+            }
+        },
+        "口": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "くち": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "少": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "すく.ない": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "shou"
+                }
+            }
+        },
+        "行": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "-ゆ.き": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "i.ku"
+                }
+            }
+        },
+        "社": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "やしろ": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "sha"
+                }
+            }
+        },
+        "千": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "ち": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "sen"
+                }
+            }
+        },
+        "休": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "やす.まる": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "yasumi"
+                }
+            }
+        },
+        "見": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "み.せる": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "miru"
+                }
+            }
+        },
+        "日": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "to kun",
+            "to kun": {
+                "-か": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "bi"
+                }
+            }
+        },
+        "目": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "meaning",
+            "meaning": {
+                "favor": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "idk"
+                }
+            }
+        },
+        "足": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "meaning",
+            "meaning": {
+                "leg": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "idkk"
+                }
+            }
+        },
+        "書": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "meaning",
+            "meaning": {
+                "write": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "生": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "meaning",
+            "meaning": {
+                "birth": {
+                    "wrong": 0,
+                    "right": 1
+                }
+            }
+        },
+        "会": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "meaning",
+            "meaning": {
+                "interview": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "idk"
+                }
+            }
+        },
+        "後": {
+            "type": "single",
+            "last_try": null,
+            "last_q_type": "meaning",
+            "meaning": {
+                "later": {
+                    "wrong": 1,
+                    "right": 0,
+                    "attempts": "after"
+                }
             }
         }
+    }
 }
