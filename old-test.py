@@ -212,17 +212,16 @@ def updateUserSet(k_type, q_type, usrans, correct, curkanji, ans, userset):
 # show (num of radicals) 2, then show 2 - 3 kanji (limit all at 5)
 # if sum(usr_kanji) == 10 start showing compounds
 
-
-# tests user on radicals
-# currently random
-# need to remove possibility for duplicates
-# sometimes no matches are made
-def testRad(num_to_show, usr_radical, temp_set):
-    # modify for higher filtering
+def learn2():
     radicals = getRadicalByJlpt(4)
+    rad_to_show = 2
+    kanj_to_show = 3
     i = 0
 
-    while i < num_to_show:
+    usr_radical = {}
+    temp_set = {'radicals': [], 'kanji': []}
+
+    while i < rad_to_show:
         radical = radicals[random.randint(0, len(radicals) - 1)]
         
 
@@ -272,32 +271,18 @@ def testRad(num_to_show, usr_radical, temp_set):
         i += 1
 
 
-def testKanj(num_to_show, temp_set):
     i = 0
 
     kanji_set = getByStrokeNo(5)
-    temp_kanj = []
     for char in kanji_set:
         for rad in temp_set['radicals']:
             if char in kradfile['kanji'] and rad in kradfile['kanji'][f'{char}']:
-                temp_kanj.append(char)
-
-    print('=======')
-    print(temp_kanj)
-
-    # further filtering to make sure it exists as a character
-    # not just a radical/unused in jmdict
-    # might not be needed will have to test
-    print('hi')
-    for kanji in kanjidic['characters']:
-        for char in temp_kanj:
-            if char == kanji['literal']:
                 temp_set['kanji'].append(char)
 
     print('=======')
     print(temp_set)
 
-    while i < num_to_show:
+    while i < kanj_to_show:
         cur_kanji = temp_set['kanji'][random.randint(0, len(temp_set['kanji'])-1)]
         # check if it's been added and mark it in db
         # query the kanji entr id
@@ -330,21 +315,8 @@ def testKanj(num_to_show, temp_set):
             print(f'wrong\nans: {ans}')
             correct = False
 
-        # most on readings return none is 
-        dbData = db.findKanji(cur_kanji, ans)
-        if dbData == None:
-            db.checkExist(cur_kanji)
-        else:
-            print(dbData[0])
-            db.addUsrKanj(cur_kanji, ans, dbData.id)
+        db.findKanji(cur_kanji, ans) # if this returns none still add just locally
         i += 1
-
-def learn2():
-    usr_radical = {}
-    temp_set = {'radicals': [], 'kanji': []}
-
-    testRad(3, usr_radical, temp_set)
-    testKanj(3, temp_set)
 
     # query to see if compound target has been hit
     compound_on = True
@@ -362,4 +334,18 @@ def learn2():
 
 
 learn2()
+
+
+def to_on(curkanji):
+    kanji_data = showKanjiData(curkanji)
+    # index of asked reading
+    r_i = random.randint(0, len(kanji_data['on'])-1)
+    reading = kanji_data['on'][r_i]
+    ans = reading
+
+    print(f'\n=======\nWhat is the onyomi reading of {curkanji}?')
+    if len(kanji_data['on'])-1 > 1:
+        alt_readings = kanji_data['on']
+        del alt_readings[r_i]
+        print(f'not {alt_readings}')
 
