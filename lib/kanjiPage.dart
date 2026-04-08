@@ -187,7 +187,11 @@ class _KanjiPageState extends State<KanjiPage> {
             ),
           ],
         ),
-        Wrap(spacing: 10, runSpacing: 10, children: kanjiList),
+        SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Wrap(spacing: 10, runSpacing: 10, children: kanjiList
+           )
+          ),
       ],
     );
   }

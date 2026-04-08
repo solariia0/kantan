@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Body
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, create_engine
 
-DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmnew"
+DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmdict"
 engine = create_engine(DATABASE_URL, echo=True) 
 
 app = FastAPI()
@@ -16,7 +16,7 @@ def read_root():
 @app.get("/jlpt/{level}/{page_number}")
 def get_kanji(level: int, page_number: int):
     offset = 35 * (page_number - 1)
-    sql = text('select k.literal from kanjidic2 as k where jlptLevel = :level LIMIT 35 OFFSET :offset ')
+    sql = text('select k.literal from kanjidic2 as k where jlptLevel = :level OFFSET :offset ')
     with engine.connect() as conn:
         result = conn.execute(sql, {'offset': offset, 'level': level}).all()
         result_dicts = [dict(row._mapping) for row in result]
@@ -67,7 +67,46 @@ def get_kanji(user_id: int, kanji_list: dict = Body(...)):
         connection.commit()
 
 # re write this with user login
-@app.get("/{user_id}/{level}/{mode}/new")
-def get_kanji(level: int, mode: int, user_id: int):
-    #get
-    pass
+@app.get("/quiz/new")
+def get_new_kanji():
+    sql = text(
+        """
+            SELECT 
+                krad.radicals, 
+                k.literal, 
+                k.onreadings,
+                k.meanings
+            FROM kradfile AS krad
+            JOIN (
+                SELECT 
+                    k.literal, 
+                    krm.onreadings,
+                    krm.meanings
+                FROM kanjidic2 k
+                JOIN kanjidic2ReadingMeaning krm 
+                    ON krm.kanji_id = k.id
+                LEFT JOIN user_kanji u 
+                    ON k.id = u.kanji_id 
+                    AND u.user_id = 1
+                WHERE u.kanji_id IS NULL
+                AND k.jlptLevel = (
+                    SELECT level FROM users WHERE id = 1
+                )
+            ) AS k 
+                ON k.literal = krad.krad_literal
+            WHERE EXISTS (
+                SELECT 1
+                FROM kanjidic2 k2
+                JOIN user_kanji u2 
+                    ON k2.id = u2.kanji_id
+                WHERE u2.user_id = 1
+                AND k2.literal = ANY(krad.radicals)
+            )
+            ORDER BY RANDOM()
+        """
+    )
+    
+    with engine.connect() as conn:
+        result = conn.execute(sql).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
