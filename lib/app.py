@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Body
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, create_engine
 
-DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmdict"
+DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmnew"
 engine = create_engine(DATABASE_URL, echo=True) 
 
 app = FastAPI()
@@ -75,11 +75,13 @@ def get_new_kanji():
                 krad.radicals, 
                 k.literal, 
                 k.onreadings,
-                k.meanings
+                k.meanings,
+                k.id
             FROM kradfile AS krad
             JOIN (
                 SELECT 
                     k.literal, 
+                    k.id,
                     krm.onreadings,
                     krm.meanings
                 FROM kanjidic2 k
@@ -108,5 +110,58 @@ def get_new_kanji():
     
     with engine.connect() as conn:
         result = conn.execute(sql).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
+
+@app.post("/user_kanji/{user_id}/onyomi")
+def get_kanji(user_id: int, body: dict = Body(...)):
+    insert_sql = text(
+        """
+        INSERT INTO user_kanji (user_id, kanji_id, on_attempts, on_correct, on_wrong)
+        VALUES (:user_id, :kanji_id, 1, :on_correct, :on_wrong)
+        ON CONFLICT (user_id, kanji_id) DO UPDATE 
+        SET
+            on_attempts = user_kanji.on_attempts + 1,
+            on_correct = user_kanji.on_correct + :on_correct,
+            on_wrong = user_kanji.on_wrong + :on_wrong
+        WHERE user_kanji.user_id = :user_id AND user_kanji.kanji_id = :kanji_id;
+        """)
+    
+    data = {"user_id": user_id, "kanji_id": body['kanji_id'], "on_correct": body["correct"], "on_wrong": body["wrong"]}
+
+    with engine.connect() as connection:
+        connection.execute(insert_sql, data)
+        connection.commit()
+
+@app.post("/user_kanji/{user_id}/kunyomi")
+def get_kanji(user_id: int, body: dict = Body(...)):
+    insert_sql = text(
+        """
+        INSERT INTO user_kanji (user_id, kanji_id, kun_attempts, kun_correct, kun_wrong)
+        VALUES (:user_id, :kanji_id, 1, :kun_correct, :kun_wrong)
+        ON CONFLICT (user_id, kanji_id) DO UPDATE 
+        SET
+            kun_attempts = user_kanji.kun_attempts + 1,
+            kun_correct = user_kanji.kun_correct + :kun_correct,
+            kun_wrong = user_kanji.kun_wrong + :kun_wrong
+        WHERE user_kanji.user_id = :user_id AND user_kanji.kanji_id = :kanji_id;
+        """)
+    
+    data = {"user_id": user_id, "kanji_id": body['kanji_id'], "kun_correct": body["correct"], "kun_wrong": body["wrong"]}
+
+    with engine.connect() as connection:
+        connection.execute(insert_sql, data)
+        connection.commit()
+
+@app.get('/user_kanji/{user_id}/total')
+def get_total(user_id: int):
+    sql = text(
+        """
+        SELECT count(u.kanji_id) from user_kanji as u where u.user_id = :id
+        """
+    )
+
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"id": user_id}).all()
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts

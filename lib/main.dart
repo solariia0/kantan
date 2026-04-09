@@ -94,33 +94,50 @@ class SideBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-            height: 100,
-            width: 100,
-            decoration: itemdeco,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Kanji Learned', style: TextStyle(),),
-                // futurue builder
-                Text('150')
-              ],
-            ),
-          ),
-          Container(
-            height: 100,
-            width: 100,
-            decoration: itemdeco,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Vocab Learned'),
-                // futurue builder
-                Text('20')
-              ],
-            ),
-          ),
+                height: 100,
+                width: 100,
+                decoration: itemdeco,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Kanji Learned', style: TextStyle()),
+                    // futurue builder
+                    FutureBuilder(
+                      future: getData('user_kanji/1/total'),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return Text(
+                            '${snapshot.data![0]['count']}',
+                            style: TextStyle(fontSize: 35, color: Colors.white)
+                            );
+                        } else if (snapshot.hasError) {
+                          return Text(
+                            '${snapshot.error}',
+                              style: TextStyle(fontSize: 35, color: Colors.white)
+                              );
+                        } else {
+                          return CircularProgressIndicator();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                height: 100,
+                width: 100,
+                decoration: itemdeco,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Vocab Learned'),
+                    // futurue builder
+                    Text('20'),
+                  ],
+                ),
+              ),
             ],
           ),
           Container(
@@ -141,10 +158,10 @@ class SideBar extends StatelessWidget {
                     width: 10,
                     decoration: BoxDecoration(
                       color: Color(boxoutline),
-                      borderRadius: BorderRadius.circular(5)
+                      borderRadius: BorderRadius.circular(5),
                     ),
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -153,7 +170,10 @@ class SideBar extends StatelessWidget {
             child: OutlinedButton(
               onPressed: () => {pageNotifier.value = 1},
               style: buttondeco,
-              child: Text('Manage Kanji', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'Manage Kanji',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
           SizedBox(
