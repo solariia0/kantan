@@ -109,13 +109,13 @@ class SideBar extends StatelessWidget {
                         if (snapshot.hasData) {
                           return Text(
                             '${snapshot.data![0]['count']}',
-                            style: TextStyle(fontSize: 35, color: Colors.white)
-                            );
+                            style: TextStyle(fontSize: 35, color: Colors.white),
+                          );
                         } else if (snapshot.hasError) {
                           return Text(
                             '${snapshot.error}',
-                              style: TextStyle(fontSize: 35, color: Colors.white)
-                              );
+                            style: TextStyle(fontSize: 35, color: Colors.white),
+                          );
                         } else {
                           return CircularProgressIndicator();
                         }
@@ -141,6 +141,7 @@ class SideBar extends StatelessWidget {
             ],
           ),
           Container(
+            // progress bar
             height: 50,
             width: 200,
             decoration: itemdeco,
@@ -148,19 +149,33 @@ class SideBar extends StatelessWidget {
               children: [
                 // all fetched level and mode and known
                 Text('N3 Progress'),
-                Container(
-                  height: 20,
-                  width: 150,
-                  decoration: itemdeco,
-                  child: Container(
-                    height: 20,
-                    // fetch width
-                    width: 10,
-                    decoration: BoxDecoration(
-                      color: Color(boxoutline),
-                      borderRadius: BorderRadius.circular(5),
+                Stack(
+                  children: [
+                    Container(
+                      decoration: itemdeco,
+                      height: 20,
+                      width: 150,
                     ),
+                    FutureBuilder(
+                    future: getData('total/1'),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Color(boxoutline),
+                            borderRadius: BorderRadius.circular(5)
+                          ),
+                          child: SizedBox(
+                            height: 20,
+                            width: snapshot.data![0]["learned kanji"] * 150 / 100,
+                          ),
+                        );
+                      } else {
+                        return LinearProgressIndicator();
+                      }
+                    },
                   ),
+                  ],
                 ),
               ],
             ),

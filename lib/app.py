@@ -52,8 +52,8 @@ def get_kanji(kanji: list[str] = Query(...)):
 def get_kanji(user_id: int, kanji_list: dict = Body(...)):
     insert_sql = text(
         """
-        INSERT INTO user_kanji (user_id, kanji_id)
-        VALUES (:user_id, :kanji_id)
+        INSERT INTO user_kanji (user_id, kanji_id,manually_added)
+        VALUES (:user_id, :kanji_id, 'T')
         ON CONFLICT DO NOTHING
         """)
     
@@ -67,52 +67,100 @@ def get_kanji(user_id: int, kanji_list: dict = Body(...)):
         connection.commit()
 
 # re write this with user login
-@app.get("/quiz/new")
-def get_new_kanji():
+@app.get("/quiz/onyomi/{user_id}")
+def get_new_kanji(user_id: int):
     sql = text(
         """
+        ( SELECT 
+            krad.radicals, 
+            k.literal, 
+            k.onreadings,
+            k.meanings,
+            k.id
+        FROM kradfile AS krad
+        JOIN (
             SELECT 
-                krad.radicals, 
                 k.literal, 
-                k.onreadings,
-                k.meanings,
-                k.id
-            FROM kradfile AS krad
-            JOIN (
-                SELECT 
-                    k.literal, 
-                    k.id,
-                    krm.onreadings,
-                    krm.meanings
-                FROM kanjidic2 k
-                JOIN kanjidic2ReadingMeaning krm 
-                    ON krm.kanji_id = k.id
-                LEFT JOIN user_kanji u 
-                    ON k.id = u.kanji_id 
-                    AND u.user_id = 1
-                WHERE u.kanji_id IS NULL
-                AND k.jlptLevel = (
-                    SELECT level FROM users WHERE id = 1
-                )
-            ) AS k 
-                ON k.literal = krad.krad_literal
-            WHERE EXISTS (
-                SELECT 1
-                FROM kanjidic2 k2
-                JOIN user_kanji u2 
-                    ON k2.id = u2.kanji_id
-                WHERE u2.user_id = 1
-                AND k2.literal = ANY(krad.radicals)
+                k.id,
+                krm.onreadings,
+                krm.meanings
+            FROM kanjidic2 k
+            JOIN kanjidic2ReadingMeaning krm 
+                ON krm.kanji_id = k.id
+            LEFT JOIN user_kanji u 
+                ON k.id = u.kanji_id 
+                AND u.user_id = :user_id
+            WHERE u.kanji_id IS NULL
+            AND k.jlptLevel = (
+                SELECT level FROM users WHERE id = :user_id
             )
-            ORDER BY RANDOM()
+        ) AS k 
+            ON k.literal = krad.krad_literal
+        WHERE EXISTS (
+            SELECT 1
+            FROM kanjidic2 k2
+            JOIN user_kanji u2 
+                ON k2.id = u2.kanji_id
+            WHERE u2.user_id = :user_id
+            AND k2.literal = ANY(krad.radicals)
+        )
+        ORDER BY RANDOM()
+        LIMIT 3)
+        UNION ALL
+        ( SELECT 
+            krad.radicals, 
+            k.literal, 
+            k.onreadings,
+            k.meanings,
+            k.id
+        FROM kradfile AS krad
+        JOIN (
+            SELECT 
+                k.literal, 
+                k.id,
+                krm.onreadings,
+                krm.meanings
+            FROM kanjidic2 k
+            JOIN kanjidic2ReadingMeaning krm 
+                ON krm.kanji_id = k.id
+            LEFT JOIN user_kanji u 
+                ON k.id = u.kanji_id 
+                AND u.user_id = :user_id
+            WHERE u.kanji_id IS NULL
+            AND k.jlptLevel = (
+                SELECT level FROM users WHERE id = :user_id
+            )
+        ) AS k 
+            ON k.literal = krad.krad_literal
+        ORDER BY RANDOM()
+        LIMIT 3)
         """
     )
     
     with engine.connect() as conn:
-        result = conn.execute(sql).all()
+        result = conn.execute(sql, {"user_id": user_id}).all()
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts
 
+@app.get("/quiz/kunyomi/{user_id}")
+def get_new_kanji(user_id: int):
+    sql = text(
+        """
+        select 
+        k.id,
+        k.literal,
+        krm.kunreadings,
+        krm.meanings,
+        krad.radicals
+        from user_kanji u
+        join kanjidic2 k on k.id = u.kanji_id
+        join kanjidic2ReadingMeaning krm on k.id = krm.kanji_id
+        join kradfile as krad on krad.krad_literal = k.literal
+        where u.user_id = :user_id and u.kun_accuracy < 70
+        """
+    )
+
+# turn this into one function with url query?
 @app.post("/user_kanji/{user_id}/onyomi")
 def get_kanji(user_id: int, body: dict = Body(...)):
     insert_sql = text(
@@ -153,15 +201,37 @@ def get_kanji(user_id: int, body: dict = Body(...)):
         connection.execute(insert_sql, data)
         connection.commit()
 
-@app.get('/user_kanji/{user_id}/total')
+# known kanji and onyomi accuracy
+@app.get('/total/{user_id}')
 def get_total(user_id: int):
     sql = text(
         """
-        SELECT count(u.kanji_id) from user_kanji as u where u.user_id = :id
+        select 
+        count(u.kanji_id) as "learned kanji",
+        count(u.on_accuracy) * 100 / NULLIF(count(u.kanji_id), 0)  as "on_accuracy",
+        (select count(k.id) as "level count" from kanjidic2 as k left join users as u on u.id = :user_id where k.jlptLevel = u.level)
+        from user_kanji u
+        join kanjidic2 k on k.id = u.kanji_id
+        where u.user_id = 1 and k.jlptLevel = (
+            select u.level from users u where u.id = :user_id
+        );
         """
     )
 
     with engine.connect() as conn:
-        result = conn.execute(sql, {"id": user_id}).all()
+        result = conn.execute(sql, {"user_id": user_id}).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
+
+# total kanji known to user
+@app.get('/user_kanji/{user_id}/total')
+def get_total(user_id: int):
+    sql = text("""
+            select count(u.kanji_id)
+            from user_kanji as u
+            where u.user_id = :user_id
+            """)
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"user_id": user_id}).all()
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts

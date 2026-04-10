@@ -35,49 +35,51 @@ class _QuizzPageState extends State<QuizzPage> {
       children: [
         //QuizArea(),
         quizContent[currentQuiz],
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            MouseRegion(
-              onEnter: (_) {
-                setState(() {
-                  if (quizStarted == false) {
-                    currentQuiz = 0;
-                  }
-                });
-              },
-              child: OutlinedButton(
-                onPressed: () {
+        if (!quizStarted)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              MouseRegion(
+                onEnter: (_) {
                   setState(() {
-                    quizStarted = true;
-                    currentQuiz = 2;
+                    if (quizStarted == false) {
+                      currentQuiz = 0;
+                    }
                   });
                 },
-                style: buttondeco,
-                child: Text('Learn'),
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      quizStarted = true;
+                      currentQuiz = 2;
+                    });
+                  },
+                  style: buttondeco,
+                  child: Text('Learn'),
+                ),
               ),
-            ),
-            MouseRegion(
-              onEnter: (_) {
-                setState(() {
-                  if (quizStarted == false) {
-                    currentQuiz = 1;
-                  }
-                });
-              },
-              child: OutlinedButton(
-                onPressed: () {},
-                style: buttondeco,
-                child: Text('Review'),
+              MouseRegion(
+                onEnter: (_) {
+                  setState(() {
+                    if (quizStarted == false) {
+                      currentQuiz = 1;
+                    }
+                  });
+                },
+                child: OutlinedButton(
+                  onPressed: () {},
+                  style: buttondeco,
+                  child: Text('Review'),
+                ),
               ),
-            ),
-          ],
-        ),
-        OutlinedButton(
-          onPressed: () {},
-          style: buttondeco,
-          child: Text('switch to vocabulary'),
-        ),
+            ],
+          ),
+        if (!quizStarted)
+          OutlinedButton(
+            onPressed: () {},
+            style: buttondeco,
+            child: Text('switch to vocabulary'),
+          ),
       ],
     );
   }
@@ -95,35 +97,71 @@ class _QuizAreaState extends State<QuizArea> {
   bool _inputOn = true;
   List<Widget> questionBlock = [];
 
-  int newkanjiindex = 0;
-  String currentkanji = '';
   int kanjiId = 0;
-  List<dynamic> ckanjirads = [];
+  int kanjiIndex = 0;
+
+  String kanji = '';
+  List<dynamic> kanjiRads = [];
+
   List<dynamic> qValue = [];
   List<dynamic> qAns = [];
   List<dynamic> kanjiListQuiz = [];
 
+  //
+  int stage = 0;
+  List currentSet = [];
+  List newKanji = [];
+  List<int> newKanjiTracking = [];
+  List knownKanji = [];
+  List newVocab = [];
+
+  Future<void> initializeKanji() async {
+    newKanji = await getData('quiz/onyomi/1');
+    print('onyomi success');
+    print(newKanji);
+    List<dynamic> onData = await getData('total/1');
+    if (onData[0]['on_accuracy'] >= 70 && onData[0]['learned kanji'] >= 3) {
+      try {
+        knownKanji = await getData('quiz/kunyomi/1');
+        print('kunyomi success');
+      } catch (e) {
+        if (e is TypeError) {
+          if (e.toString().contains('null')) {
+            newKanji.add(await getData('quiz/onyomi/1'));
+            print('no kunyomi | to do added more new');
+          }
+        }
+      }
+    }
+    // implement voacb
+    //List<dynamic> newVocabData = await getData('quiz/new');
+
+    updateQuiz();
+  }
   // implement multiple question types
 
-  void getNewKanji() async {
+  void updateQuiz() {
     try {
-      List<dynamic> data = await getData('quiz/new'); // onyomi rm
       if (!mounted) return;
       setState(() {
-        currentkanji = data[newkanjiindex]['literal'];
-        ckanjirads = data[newkanjiindex]['radicals'];
-        qAns = data[newkanjiindex]['onreadings'];
-        qValue = data[newkanjiindex]['meanings'];
-        kanjiListQuiz = data;
-        kanjiId = data[newkanjiindex]['id'];
+        if (stage < 3) {
+          currentSet = newKanji;
+        } else if (stage < 6 && knownKanji.isNotEmpty) {
+          currentSet = knownKanji;
+        } else if (stage >= 7) {
+          currentSet = newVocab;
+        }
+        kanji = currentSet[kanjiIndex]['literal'];
+        kanjiRads = currentSet[kanjiIndex]['radicals'];
+        qAns = currentSet[kanjiIndex]['onreadings'];
+        qValue = currentSet[kanjiIndex]['meanings'];
+        kanjiListQuiz = currentSet;
+        kanjiId = currentSet[kanjiIndex]['id'];
 
         questionBlock = [
+          Text(kanji, style: TextStyle(color: Colors.white, fontSize: 80)),
           Text(
-            currentkanji,
-            style: TextStyle(color: Colors.white, fontSize: 80),
-          ),
-          Text(
-            '$ckanjirads',
+            '$kanjiRads',
             style: TextStyle(color: Colors.white, fontSize: 30),
           ),
           Text(
@@ -134,7 +172,7 @@ class _QuizAreaState extends State<QuizArea> {
       });
     } catch (e) {
       setState(() {
-        currentkanji = "ERROR: $e";
+        kanji = "ERROR: $e";
       });
     }
   }
@@ -142,7 +180,7 @@ class _QuizAreaState extends State<QuizArea> {
   @override
   void initState() {
     super.initState();
-    getNewKanji();
+    initializeKanji();
   }
 
   @override
@@ -160,7 +198,7 @@ class _QuizAreaState extends State<QuizArea> {
           if (!_inputOn)
             OutlinedButton(
               onPressed: () {
-                getNewKanji();
+                updateQuiz();
                 _inputOn = !_inputOn;
               },
               child: Text('next'),
@@ -242,3 +280,13 @@ class _QuizAreaState extends State<QuizArea> {
   }
 }
 
+
+/*
+pressing learn starts a new quiz session
+for each quiz
+2 new kanji - 3 q's in a session 
+  first is input onyomi guessing -> these will be the first two introduced at the start of a session
+  alternative
+3 kanji know the onyomi  - 4 q types, 2 kun , 2 meanigns, 1 input each
+2 vocab 
+*/

@@ -27,20 +27,26 @@ CREATE TABLE user_kanji (
     kanji_id INT REFERENCES kanjidic2(id),
     PRIMARY KEY (user_id, kanji_id),
     on_accuracy NUMERIC GENERATED ALWAYS AS ((on_correct * 100.0) / NULLIF(on_attempts, 0)) STORED,
-    on_attempts INT NOT NULL DEFAULT 0,
-    on_correct INT NOT NULL DEFAULT 0,
+    on_attempts INT NOT NULL DEFAULT 70,
+    on_correct INT NOT NULL DEFAULT 70,
     on_wrong INT NOT NULL DEFAULT 0,
     kun_accuracy  NUMERIC GENERATED ALWAYS AS ((kun_correct * 100.0) / NULLIF(kun_attempts, 0)) STORED,
-    kun_attempts INT NOT NULL DEFAULT 0,
+    kun_attempts INT NOT NULL DEFAULT 70,
     kun_wrong INT NOT NULL DEFAULT 0,
-    kun_correct INT NOT NULL DEFAULT 0,
+    kun_correct INT NOT NULL DEFAULT 70,
     reading_accuracy  NUMERIC GENERATED ALWAYS AS ((reading_correct * 100.0) / NULLIF(reading_attempts, 0)) STORED,
-    reading_attempts INT NOT NULL DEFAULT 0,
+    reading_attempts INT NOT NULL DEFAULT 70,
     reading_wrong INT NOT NULL DEFAULT 0,
-    reading_correct INT NOT NULL DEFAULT 0,
+    reading_correct INT NOT NULL DEFAULT 70,
     input_mistakes VARCHAR(20),
     mcq_mistakes VARCHAR [],
-    last_practiced timestamp
+    last_practiced TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    manually_added BOOLEAN
+);
+
+CREATE TABLE user_vocab(
+    user_id INT REFERENCES users(id),
+    entry_id INT REFERENCES 
 );
 
 CREATE TABLE kradfile (
