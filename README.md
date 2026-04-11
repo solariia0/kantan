@@ -1,7 +1,4 @@
 # kantan
 
 Kanji and vocabulary learning app.
-
-![homepage](homepage.png)
-
-![alt text](image.png)
+Learn new kanji and vocabulary with dynamically generated study sets based on what you already know.
