@@ -97,7 +97,7 @@ class _KanjiPageState extends State<KanjiPage> {
       children: [
         Text(
           '${mode.toUpperCase()} - $level',
-          style: TextStyle(fontSize: 40, color: Colors.white),
+          style: TextStyle(fontSize: 40),
         ),
         Row(
           // reset selection if these are pressed
@@ -110,7 +110,7 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('Grade (Joyo)'),
             ),
             OutlinedButton(
@@ -120,7 +120,7 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('JLPT'),
             ),
           ],
@@ -135,7 +135,7 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('1'),
             ),
             OutlinedButton(
@@ -145,7 +145,7 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('2'),
             ),
             OutlinedButton(
@@ -155,7 +155,7 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('3'),
             ),
             OutlinedButton(
@@ -165,7 +165,7 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('4'),
             ),
             OutlinedButton(
@@ -175,14 +175,14 @@ class _KanjiPageState extends State<KanjiPage> {
                   getKanjiList();
                 }),
               },
-              style: buttondeco,
+              
               child: Text('5'),
             ),
             OutlinedButton(
               onPressed: () {
                 sendKanji();
               },
-              style: buttondeco,
+              
               child: Text('Add to known kanji'),
             ),
           ],
@@ -230,7 +230,7 @@ class _KanjiHolderState extends State<KanjiHolder> {
         decoration: selected ? selecteditemdeco : itemdeco,
         child: Text(
           widget.text,
-          style: TextStyle(fontSize: 40, color: Colors.white),
+          style: TextStyle(fontSize: 40),
         ),
       ),
     );

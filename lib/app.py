@@ -75,6 +75,7 @@ def get_new_kanji(user_id: int):
             krad.radicals, 
             k.literal, 
             k.onreadings,
+            k.kunreadings,
             k.meanings,
             k.id
         FROM kradfile AS krad
@@ -83,6 +84,7 @@ def get_new_kanji(user_id: int):
                 k.literal, 
                 k.id,
                 krm.onreadings,
+                krm.kunreadings,
                 krm.meanings
             FROM kanjidic2 k
             JOIN kanjidic2ReadingMeaning krm 
@@ -111,6 +113,7 @@ def get_new_kanji(user_id: int):
             krad.radicals, 
             k.literal, 
             k.onreadings,
+            k.kunreadings,
             k.meanings,
             k.id
         FROM kradfile AS krad
@@ -119,6 +122,7 @@ def get_new_kanji(user_id: int):
                 k.literal, 
                 k.id,
                 krm.onreadings,
+                krm.kunreadings,
                 krm.meanings
             FROM kanjidic2 k
             JOIN kanjidic2ReadingMeaning krm 
@@ -149,6 +153,7 @@ def get_new_kanji(user_id: int):
         select 
         k.id,
         k.literal,
+        krm.onreadings,
         krm.kunreadings,
         krm.meanings,
         krad.radicals
@@ -235,3 +240,4 @@ def get_total(user_id: int):
         result = conn.execute(sql, {"user_id": user_id}).all()
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts
+

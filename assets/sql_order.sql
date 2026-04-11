@@ -44,13 +44,14 @@ CREATE TABLE user_kanji (
     manually_added BOOLEAN
 );
 
-CREATE TABLE user_vocab(
-    user_id INT REFERENCES users(id),
-    entry_id INT REFERENCES 
-);
 
 CREATE TABLE kradfile (
     krad_id SERIAL PRIMARY KEY,
     krad_literal VARCHAR(5) NOT NULL,
     radicals VARCHAR[] NOT NULL
+);
+
+CREATE TABLE user_vocab(
+    user_id INT REFERENCES users(id),
+    entry_id INT REFERENCES 
 );

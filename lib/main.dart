@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 // pages
-import 'kanjiPage.dart';
+import 'kanji_page.dart';
 import 'package:kantan/quiz_page.dart';
 
 void main() {
@@ -11,8 +11,12 @@ void main() {
 
 // themes and colors
 final int boxoutline = 0xFF4D92B4;
-final int bg = 0xFF282B31;
-final int accentblue = 0xFF242B3F;
+final int blueDarker = 0xFF305B70;
+//final int accentblue = 0xFF12182B;
+//final int bg = 0xFF222A46; //0xFF242B3F
+
+final int bg = 0xFF222A46;
+final int accentblue = 0xFF222A46;
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
@@ -21,6 +25,22 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'kantan',
+      theme: ThemeData(
+        textTheme: Theme.of(context).textTheme.apply(
+          bodyColor: Colors.white, // light theme maybe?
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            alignment: Alignment.centerLeft,
+            side: BorderSide(color: Color(boxoutline), width: 1),
+            backgroundColor: Color(accentblue),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
       home: Scaffold(
         backgroundColor: Color(bg),
         body: Center(
@@ -38,7 +58,7 @@ class MainArea extends StatelessWidget {
   final List<Widget> _pageWidgets = const [
     QuizzPage(),
     KanjiPage(),
-    Center(child: Text('Settings Page')),
+    Text('settings'),
   ];
 
   const MainArea({super.key});
@@ -79,69 +99,113 @@ class SideBar extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
+          Container( // home button
+            margin: EdgeInsets.all(5),
             width: 200, // this may break idk
             child: OutlinedButton.icon(
               onPressed: () => {pageNotifier.value = 0},
-              label: Text('Home', style: TextStyle(color: Colors.white)),
-              icon: Icon(Icons.home, color: Colors.white),
-              style: buttondeco,
+              label: Text('Home'),
+              icon: Icon(Icons.home),
             ),
           ),
-          BlankWiget(), // streak bar
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                height: 100,
-                width: 100,
-                decoration: itemdeco,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
+          Container(
+            margin: EdgeInsets.all(5),
+            padding: EdgeInsets.all(10),
+            decoration: itemdeco,
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    Text('Kanji Learned', style: TextStyle()),
-                    // futurue builder
-                    FutureBuilder(
-                      future: getData('user_kanji/1/total'),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return Text(
-                            '${snapshot.data![0]['count']}',
-                            style: TextStyle(fontSize: 35, color: Colors.white),
-                          );
-                        } else if (snapshot.hasError) {
-                          return Text(
-                            '${snapshot.error}',
-                            style: TextStyle(fontSize: 35, color: Colors.white),
-                          );
-                        } else {
-                          return CircularProgressIndicator();
-                        }
-                      },
+                    // futurebuildder
+                    Container(padding: EdgeInsets.all(5), child: Icon(Icons.circle, size: 40, color: Colors.indigoAccent,)),
+                    Text('5 day streak!')
+                    // 'X day streak! /  Dont break your streak / Start a new streak'
+                  ],
+                ),
+                Row(
+                  children: [
+                    // automate this ig?
+                    Icon(Icons.circle, color: Colors.indigoAccent,),
+                    Icon(Icons.circle, color: Colors.blueGrey,),
+                    Icon(Icons.circle, color: Colors.indigoAccent,),
+                    Icon(Icons.circle, color: Colors.indigoAccent,),
+                    Icon(Icons.circle, color: Colors.indigoAccent,),
+                    Icon(Icons.circle, color: Colors.indigoAccent,),
+                    Icon(Icons.circle, color: Colors.indigoAccent,)
+                  ],
+                )
+              ],
+            ),
+            ),
+          Container(
+            margin: EdgeInsets.all(5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Container(
+                    margin: EdgeInsets.all(5),
+                    padding: EdgeInsets.symmetric(horizontal: 5, vertical: 7),
+                    decoration: itemdeco,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Kanji Learned', textAlign: TextAlign.center),
+                        // futurue builder
+                        FutureBuilder(
+                          future: getData('user_kanji/1/total'),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              return Text(
+                                '${snapshot.data![0]['count']}',
+                                style: TextStyle(fontSize: 35),
+                              );
+                            } else if (snapshot.hasError) {
+                              return Text(
+                                '${snapshot.error}',
+                                style: TextStyle(fontSize: 35),
+                              );
+                            } else {
+                              return CircularProgressIndicator();
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              Container(
-                height: 100,
-                width: 100,
-                decoration: itemdeco,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Vocab Learned'),
-                    // futurue builder
-                    Text('20'),
-                  ],
+                Expanded(
+                  child: Container(
+                    margin: EdgeInsets.all(5),
+                    padding: EdgeInsets.symmetric(horizontal: 5, vertical: 7),
+                    decoration: itemdeco,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Vocab Learned', textAlign: TextAlign.center,),
+                        // futurue builder
+                        Text('20', style: TextStyle(fontSize: 35),),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          Container(
+            margin: EdgeInsets.all(3),
+            child: OutlinedButton(
+              onPressed: () => {pageNotifier.value = 1},
+
+              child: Text('Manage Kanji'),
+            ),
           ),
           Container(
             // progress bar
+            margin: EdgeInsets.all(5),
             height: 50,
             width: 200,
             decoration: itemdeco,
@@ -151,53 +215,42 @@ class SideBar extends StatelessWidget {
                 Text('N3 Progress'),
                 Stack(
                   children: [
-                    Container(
-                      decoration: itemdeco,
-                      height: 20,
-                      width: 150,
-                    ),
+                    Container(decoration: itemdeco, height: 20, width: 150),
                     FutureBuilder(
-                    future: getData('total/1'),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Color(boxoutline),
-                            borderRadius: BorderRadius.circular(5)
-                          ),
-                          child: SizedBox(
-                            height: 20,
-                            width: snapshot.data![0]["learned kanji"] * 150 / 100,
-                          ),
-                        );
-                      } else {
-                        return LinearProgressIndicator();
-                      }
-                    },
-                  ),
+                      future: getData('total/1'),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Color(boxoutline),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: SizedBox(
+                              height: 20,
+                              width:
+                                  snapshot.data![0]["learned kanji"] *
+                                  150 /
+                                  100,
+                            ),
+                          );
+                        } else {
+                          return LinearProgressIndicator();
+                        }
+                      },
+                    ),
                   ],
                 ),
               ],
             ),
           ),
-          SizedBox(
-            width: 200,
-            child: OutlinedButton(
-              onPressed: () => {pageNotifier.value = 1},
-              style: buttondeco,
-              child: Text(
-                'Manage Kanji',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-          SizedBox(
+          Spacer(),
+          Container(
+            margin: EdgeInsets.all(5),
             width: 200,
             child: OutlinedButton.icon(
               onPressed: () => {pageNotifier.value = 2},
-              label: Text('Settings', style: TextStyle(color: Colors.white)),
-              icon: Icon(Icons.settings, color: Colors.white),
-              style: buttondeco,
+              label: Text('Settings'),
+              icon: Icon(Icons.settings),
             ),
           ),
         ],
@@ -219,7 +272,8 @@ class QuizModeBar extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          BlankWiget(), // streak bar
+          Text('Current mode:', style: TextStyle(fontSize: 25),),
+          Text('JLPT - N3', style: TextStyle(fontSize: 20),),
         ],
       ),
     );
@@ -229,59 +283,23 @@ class QuizModeBar extends StatelessWidget {
 // decorations
 final componentDeco = BoxDecoration(
   color: Color(accentblue),
-  borderRadius: BorderRadius.circular(10),
+  borderRadius: BorderRadius.circular(5),
   boxShadow: [
-    // get the proper color
-    BoxShadow(
-      color: const Color.fromARGB(255, 21, 26, 36),
-      blurRadius: 5,
-      offset: Offset(0, 2),
-    ),
+    BoxShadow(color: Colors.black, blurRadius: 3, offset: Offset(0, 3)),
   ],
 );
 
 final itemdeco = BoxDecoration(
-  border: Border.all(width: 2, color: Color(boxoutline)),
+  border: Border.all(width: 1, color: Color(boxoutline)),
   borderRadius: BorderRadius.circular(10),
 );
 
 final selecteditemdeco = BoxDecoration(
-  border: Border.all(width: 2, color: Color(boxoutline)),
+  border: Border.all(width: 1, color: Color(boxoutline)),
   color: Color(boxoutline),
   borderRadius: BorderRadius.circular(10),
 );
 
-final buttondeco = OutlinedButton.styleFrom(
-  side: BorderSide(color: Color(boxoutline), width: 2),
-  backgroundColor: Color(accentblue),
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-);
-
-// misc widgets
-class BlankWiget extends StatelessWidget {
-  const BlankWiget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(height: 100, width: 200, decoration: itemdeco);
-  }
-}
-
-class SideBarItem extends StatelessWidget {
-  final String text;
-  final Icon icon;
-  const SideBarItem({super.key, required this.text, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 100,
-      width: 200,
-      decoration: itemdeco,
-      child: Row(children: [icon, Text(text)]),
-    );
-  }
-}
 
 // http stuff
 Future<List<dynamic>> getData(String path) async {
