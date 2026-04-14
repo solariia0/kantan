@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:kantan/svg.dart';
 import 'main.dart';
 import 'package:kana_kit/kana_kit.dart';
 
@@ -34,8 +35,7 @@ class _QuizzPageState extends State<QuizzPage> {
     return Column(
       children: [
         //QuizArea(),
-        if (quizStarted)
-        quizContent[currentQuiz],
+        if (quizStarted) quizContent[currentQuiz],
         if (!quizStarted)
           Column(
             children: [
@@ -107,19 +107,20 @@ class QuizArea extends StatefulWidget {
 }
 
 class _QuizAreaState extends State<QuizArea> {
-  int kanjiId = 0;
-  int kanjiIndex = 0;
-
+  // kanji info
+  int kanjiId = 0; // id in kanjidic2 table
+  int kanjiIndex = 0; // current kanji index
   String kanji = '';
   List<dynamic> kanjiRads = [];
-  List<dynamic> kun = [];
-  List<dynamic> on = [];
+  List<dynamic> kun = []; // kunyomi
+  List<dynamic> on = []; // onyomi
   List<dynamic> meaning = [];
+  List<dynamic> userRads = [];
 
-  List<dynamic> kanjiListQuiz = [];
+  List<dynamic> kanjiListQuiz = []; // probably safe to delete
 
-  //
-  int stage = 0;
+  // managing quiz state
+  int stage = 0; // quiz stage
   List currentSet = [];
   List allKanji = [];
 
@@ -127,13 +128,14 @@ class _QuizAreaState extends State<QuizArea> {
   List knownKanji = [];
   List newVocab = [];
 
+  // tracks the number of times each character is quizzed
   List<int> newTracking = [];
   List<int> knownTracking = [];
   List<int> vocabTracking = [];
 
   Future<void> initializeKanji() async {
     newKanji = await getData('quiz/onyomi/1');
-    for (var item in newKanji) {
+    for (int i = 0; i < newKanji.length; i++) {
       newTracking.add(0);
     }
     allKanji = newKanji;
@@ -142,18 +144,25 @@ class _QuizAreaState extends State<QuizArea> {
       try {
         knownKanji = await getData('quiz/kunyomi/1');
         allKanji.add(knownKanji[0]);
-        for (var item in knownKanji) {
+        for (int i = 0; i < knownKanji.length; i++) {
           knownTracking.add(0);
         }
       } catch (e) {
         if (e is TypeError) {
           if (e.toString().contains('null')) {
             List<dynamic> moreKanji = await getData('quiz/onyomi/1');
+            print("Length of newKanji before: ${newKanji.length}");
+            print("length of moreKanji ${moreKanji.length}");
+            print("new tracking length before: ${newTracking.length}");
+            print(newKanji);
+            print(moreKanji);
             newKanji.add(moreKanji[0]);
             allKanji.add(moreKanji[0]);
-            for (var item in newKanji) {
+            for (int i = 0; i < moreKanji.length; i++) {
               newTracking.add(0);
             }
+            print("length of new kanji after: ${newKanji.length}");
+            print("new tracking length: ${newTracking.length}");
           }
         }
       }
@@ -162,7 +171,6 @@ class _QuizAreaState extends State<QuizArea> {
     //List<dynamic> newVocabData = await getData('quiz/new');
     //allKanji[0].add(newVocabData[0]);
     // for (var item in vocabKanji) {vocabTracking.add(0);}
-
     updateQuiz();
   }
 
@@ -177,6 +185,7 @@ class _QuizAreaState extends State<QuizArea> {
       if (!mounted) return;
       setState(() {
         // setting quiz stage
+        // if stage 2 doesn't exist skip it
         if (stage <= 2) {
           currentSet = newKanji;
           trackingType = 0;
@@ -190,7 +199,7 @@ class _QuizAreaState extends State<QuizArea> {
             trackingType = 1;
             print('known kanji');
           }
-        } else if (stage >= 7) {
+        } else if (stage >= 6) {
           currentSet = newVocab;
           trackingType = 2;
           print('vocab');
@@ -201,13 +210,19 @@ class _QuizAreaState extends State<QuizArea> {
         kanjiRads = currentSet[kanjiIndex]['radicals'];
         kun = currentSet[kanjiIndex]['kunreadings'];
         on = currentSet[kanjiIndex]['onreadings'];
+        for (var onyomi in on) {
+          onyomi = kanaKit.toHiragana(onyomi);
+        }
+        for (var kunyomi in kun) {
+          kunyomi = kanaKit.toHiragana(kunyomi);
+        }
         meaning = currentSet[kanjiIndex]['meanings'];
         kanjiListQuiz = currentSet;
         kanjiId = currentSet[kanjiIndex]['id'];
 
-        mainText = kanji;
         subText = '$kanjiRads';
-        hintText = "can you guess what the on'yomi reading is?";
+
+        svgid = kanjiToId[kanji]!;
 
         setQuestion();
         ansColor = Colors.white;
@@ -219,14 +234,23 @@ class _QuizAreaState extends State<QuizArea> {
     }
   }
 
+  String readingType = '';
+
   void setQuestion() {
-    print(allKanji);
     List tracking = [newTracking, knownTracking, vocabTracking];
     List values = [kun, on, meaning];
     if (tracking[trackingType][kanjiIndex] == 0) {
+      readingType = 'kunreadings'; //testing
       qType = 0;
       qAns = on;
       qValue = values[2];
+      hintText = "Can you guess the on'yomi reading?";
+      print('first on first, apparently');
+      print("tracking type [new, known, vocab]: $trackingType");
+      print("values in the tracking type: ${tracking[trackingType]}");
+      print("index of the current kanji: $kanjiIndex");
+      print("length of newkanji: ${newKanji.length}");
+      print("stage:  $stage");
     } else {
       qType = Random().nextInt(2) + 1;
       int ans = Random().nextInt(2);
@@ -236,6 +260,24 @@ class _QuizAreaState extends State<QuizArea> {
       }
       qAns = values[ans];
       qValue = values[value];
+      if (ans == 0) {
+        hintText = "What is the kun'yomi reading?";
+        readingType = 'kunreadings';
+      } else if (ans == 1) {
+        hintText = "Can you guess the on'yomi reading?";
+        readingType = 'onreadings';
+      } else if (ans == 2) {
+        hintText = "What is the meaning?";
+      } else {
+        hintText = "something has gone wrong";
+      }
+
+      print('passed first round of onyomi');
+      print("tracking type [new, known, vocab]: $trackingType");
+      print("values in the tracking type: ${tracking[trackingType]}");
+      print("index of the current kanji: $kanjiIndex");
+      print("stage:  $stage");
+      qType = 1; // for testing
     }
   }
 
@@ -246,20 +288,25 @@ class _QuizAreaState extends State<QuizArea> {
   String mainText = '';
   String subText = '';
   String hintText = '';
+  String svgid = '';
 
   void inputCheck(String text) {
+    List tracking = [newTracking, knownTracking, vocabTracking];
+    tracking[trackingType][kanjiIndex] += 1;
+
     Map postData = {"kanji_id": kanjiId, "correct": 0, "wrong": 0};
 
     String converted = kanaKit.toKatakana(text);
     answered = true;
     answer = converted;
+    mainText = converted;
 
     if (qAns.contains(converted)) {
       postData['correct'] = 1;
       correct = true;
       setState(() {
         ansColor = Color.fromARGB(255, 68, 185, 113);
-        subText = '$meaning';
+        subText = meaning.join(', ');
         hintText = '';
       });
     } else {
@@ -267,15 +314,31 @@ class _QuizAreaState extends State<QuizArea> {
       setState(() {
         ansColor = Color.fromARGB(255, 192, 45, 65);
         correct = false;
-        subText = '$qAns';
-        hintText = '$meaning';
+        subText = qAns.join(', ');
+        hintText = meaning.join(', ');
       });
       sendData('user_kanji/1/onyomi', postData);
     }
   }
 
   void next() {
-    kanjiIndex++;
+    print('submitted');
+    print(kanjiIndex);
+    if (kanjiIndex >= currentSet.length) {
+      kanjiIndex = 0;
+      print('index reset');
+      List tracking = [newTracking, knownTracking, vocabTracking];
+      if (tracking[trackingType][currentSet.length] >= 3) {
+        stage++; //
+        print('stage change');
+      }
+    } else {
+      kanjiIndex++;
+    }
+
+    //reset bool
+    correct = false;
+    answered = false;
     // stage
     updateQuiz();
   }
@@ -289,18 +352,20 @@ class _QuizAreaState extends State<QuizArea> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.35,
-      height: MediaQuery.of(context).size.height * 0.45,
-      padding: EdgeInsets.all(5),
-      decoration: itemdeco,
+      //width: MediaQuery.of(context).size.width * 0.35,
+      //height: MediaQuery.of(context).size.height * 0.55,
+      //margin: EdgeInsets.symmetric(horizontal: 50),
+      //padding: EdgeInsets.symmetric(vertical: 40),
+      //decoration: itemdeco,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Column(
             children: [
-              if (qType == 0) /*
+              if (qType == 0)
                 InputQuestion(
+                  svgid: svgid,
                   kanji: kanji,
                   kanjiRads: kanjiRads,
                   kun: kun,
@@ -313,9 +378,32 @@ class _QuizAreaState extends State<QuizArea> {
                   onSubmit: (text) {
                     inputCheck(text);
                   },
-                  ansColor: ansColor,
-                  answer: answer,
                   answered: answered,
+                  answer: answer,
+                  ansColor: ansColor,
+                  correct: correct,
+                  mainText: mainText,
+                  subText: subText,
+                  hintText: hintText,
+                  next: next,
+                ),
+              if (qType == 1)
+                Mcq(
+                  svgid: svgid,
+                  kanji: kanji,
+                  kanjiRads: kanjiRads,
+                  kun: kun,
+                  on: on,
+                  meaning: meaning,
+                  kanjiId: kanjiId,
+                  qAns: qAns,
+                  qValue: qValue,
+                  onSubmit: (text) {
+                    inputCheck(text);
+                  },
+                  answered: answered,
+                  answer: answer,
+                  ansColor: ansColor,
                   correct: correct,
                   mainText: mainText,
                   subText: subText,
@@ -323,47 +411,10 @@ class _QuizAreaState extends State<QuizArea> {
                   next: () {
                     next();
                   },
-                ),*/
-                McqDragnDrop(
-                  meaningHidden: true,
-                  readingHidden: true,
                   allKanji: allKanji,
-                  kanji: kanji,
-                  kanjiRads: kanjiRads,
-                  kun: kun,
-                  on: on,
-                  meaning: meaning,
-                  kanjiId: kanjiId,
-                  qAns: qAns,
-                  qValue: qValue,
-                ),
-              if (qType == 1)
-                Mcq(
-                  allKanji: allKanji,
-                  kanji: kanji,
-                  kanjiRads: kanjiRads,
-                  kun: kun,
-                  on: on,
-                  meaning: meaning,
-                  kanjiId: kanjiId,
-                  qAns: qAns,
-                  qValue: qValue,
                 ),
               if (qType == 2)
-                //McqDragnDrop(meaningHidden: false, readingHidden: true),
-                McqDragnDrop(
-                  meaningHidden: true,
-                  readingHidden: true,
-                  allKanji: allKanji,
-                  kanji: kanji,
-                  kanjiRads: kanjiRads,
-                  kun: kun,
-                  on: on,
-                  meaning: meaning,
-                  kanjiId: kanjiId,
-                  qAns: qAns,
-                  qValue: qValue,
-                ),
+               McqDragnDrop(readingType: readingType, currentSet: currentSet)
             ],
           ),
         ],
@@ -373,6 +424,7 @@ class _QuizAreaState extends State<QuizArea> {
 }
 
 class InputQuestion extends StatefulWidget {
+  final String svgid;
   final String kanji;
   final List<dynamic> kanjiRads;
   final List<dynamic> kun;
@@ -394,6 +446,7 @@ class InputQuestion extends StatefulWidget {
   final List<dynamic> kanjiListQuiz;
   InputQuestion({
     super.key,
+    required this.svgid,
     required this.kanji,
     required this.kanjiRads,
     required this.kun,
@@ -431,13 +484,20 @@ class _InputQuestionState extends State<InputQuestion> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          widget.mainText,
-          style: TextStyle(
-            color: widget.answered ? widget.ansColor : Colors.white,
-            fontSize: 80,
+        if (!widget.answered)
+          Center(
+            child: KanjiSVG(
+              paths: parseKanji(kanjivg, "kvg:${widget.svgid}", []),
+            ),
           ),
-        ),
+        if (widget.answered)
+          Text(
+            widget.mainText,
+            style: TextStyle(
+              color: widget.answered ? widget.ansColor : Colors.white,
+              fontSize: 80,
+            ),
+          ),
         Text(widget.subText, style: TextStyle(fontSize: 30)),
         Text(widget.hintText),
         if (!_inputOn)
@@ -487,18 +547,29 @@ class _InputQuestionState extends State<InputQuestion> {
 }
 
 class Mcq extends StatefulWidget {
+  final String svgid;
   final String kanji;
   final List<dynamic> kanjiRads;
-  final List<dynamic> allKanji;
   final List<dynamic> kun;
   final List<dynamic> on;
   final List<dynamic> meaning;
   final int kanjiId;
   final List<dynamic> qAns;
   final List<dynamic> qValue;
-  const Mcq({
+  final Function(String) onSubmit;
+  bool answered;
+  Color ansColor;
+  String answer;
+  bool correct;
+  String mainText;
+  String subText;
+  String hintText;
+  final Function() next;
+  final List<dynamic> allKanji;
+
+  Mcq({
     super.key,
-    required this.allKanji,
+    required this.svgid,
     required this.kanji,
     required this.kanjiRads,
     required this.kun,
@@ -507,6 +578,16 @@ class Mcq extends StatefulWidget {
     required this.kanjiId,
     required this.qAns,
     required this.qValue,
+    required this.onSubmit,
+    required this.answered,
+    required this.answer,
+    required this.ansColor,
+    required this.correct,
+    required this.mainText,
+    required this.subText,
+    required this.hintText,
+    required this.next,
+    required this.allKanji,
   });
 
   @override
@@ -514,67 +595,86 @@ class Mcq extends StatefulWidget {
 }
 
 class _McqState extends State<Mcq> {
+  List<String> options = [];
+
+  void _generateOptions() {
+    // when showing kunyomi options don't update properly
+    // options don't update at all go to next()
+    setState(() {
+      options = [];
+      var ans = widget.qAns[random.nextInt(widget.qAns.length)];
+      ans = kanaKit.toHiragana(ans);
+      options.add(ans);
+
+      while (options.length < 4) {
+        var candidate = widget
+            .allKanji[random.nextInt(widget.allKanji.length)]['onreadings'];
+        candidate = kanaKit.toHiragana(
+          candidate[random.nextInt(candidate.length)],
+        );
+
+        if (!options.contains(candidate)) {
+          options.add(candidate);
+        }
+      }
+      options.shuffle(random);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _generateOptions();
+  }
+
   // make qans postion random
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(widget.kanji, style: TextStyle(fontSize: 80)),
-        Text('${widget.kanjiRads}', style: TextStyle(fontSize: 30)),
-        Text("Can you guess what the on'yomi reading is?"),
-        Wrap(
-          children: [
-            OutlinedButton(
-              onPressed: () {},
-              child: Text(
-                '${widget.allKanji[Random().nextInt(widget.allKanji.length)]['onreadings']}',
-              ),
+        if (!widget.answered)
+          Center(
+            child: KanjiSVG(
+              paths: parseKanji(kanjivg, "kvg:${widget.svgid}", []),
             ),
-            OutlinedButton(onPressed: () {}, child: Text('${widget.qAns}')),
-            OutlinedButton(
-              onPressed: () {},
-              child: Text(
-                '${widget.allKanji[Random().nextInt(widget.allKanji.length)]['onreadings']}',
-              ),
+          ),
+        if (widget.answered)
+          Text(
+            widget.mainText,
+            style: TextStyle(
+              color: widget.answered ? widget.ansColor : Colors.white,
+              fontSize: 80,
             ),
-            OutlinedButton(
-              onPressed: () {},
-              child: Text(
-                '${widget.allKanji[Random().nextInt(widget.allKanji.length)]['onreadings']}',
-              ),
-            ),
-          ],
-        ),
+          ),
+        Text(widget.subText, style: TextStyle(fontSize: 30)),
+        Text(widget.hintText),
+        if (!widget.answered)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: options.map((option) {
+              return OutlinedButton(
+                onPressed: () {
+                  widget.onSubmit(option);
+                },
+                child: Text(option),
+              );
+            }).toList(),
+          ),
+        if (widget.answered)
+          OutlinedButton(onPressed: widget.next, child: Text('next')),
       ],
     );
   }
 }
 
 class McqDragnDrop extends StatefulWidget {
-  final String kanji;
-  final List<dynamic> kanjiRads;
-  final List<dynamic> allKanji;
-  final List<dynamic> kun;
-  final List<dynamic> on;
-  final List<dynamic> meaning;
-  final int kanjiId;
-  final List<dynamic> qAns;
-  final List<dynamic> qValue;
-  final bool meaningHidden;
-  final bool readingHidden;
+  final List<dynamic> currentSet;
+  final String readingType;
   const McqDragnDrop({
     super.key,
-    required this.meaningHidden,
-    required this.readingHidden,
-    required this.allKanji,
-    required this.kanji,
-    required this.kanjiRads,
-    required this.kun,
-    required this.on,
-    required this.meaning,
-    required this.kanjiId,
-    required this.qAns,
-    required this.qValue,
+    required this.readingType,
+    required this.currentSet,
   });
 
   @override
@@ -583,77 +683,121 @@ class McqDragnDrop extends StatefulWidget {
 
 class _McqDragnDropState extends State<McqDragnDrop> {
   String test = 'data';
-  String option = 'option';
   String acceptedData = '';
   bool _isDropped = false;
 
+  final List<bool> _hidden = [true, true, false, false];
+  int i = -1;
+  List options = [];
+
+  void _generateOptions() {
+    setState(() {
+      while (options.length < widget.currentSet.length) {
+        Map<String, dynamic> candidate =
+            widget.currentSet[random.nextInt(widget.currentSet.length)];
+
+        if (!options.contains(candidate)) {
+          options.add(candidate);
+        }
+      }
+      options.shuffle();
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _generateOptions();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        DragTarget<String>(
-          builder: (context, accepted, rejected) {
-            return Container(
-              width: 100,
-              height: 100,
-              decoration: dragDeco,
-              child: acceptedData.isEmpty
-                  ? const SizedBox()
+      children: options.map((option) {
+        i++;
+        return Column(
+          children: [
+            DragTarget<String>(
+              builder: (context, accepted, rejected) {
+                return Container(
+                  width: 130,
+                  height: 130,
+                  decoration: dragDeco,
+                  child: acceptedData.isEmpty
+                      ? const SizedBox()
+                      : Container(
+                          decoration: dragDeco,
+                          child: Center(child: Text(acceptedData)),
+                        ),
+                );
+              },
+              onAcceptWithDetails: (details) {
+                setState(() {
+                  acceptedData = details.data;
+                  _isDropped = true;
+                });
+              },
+            ),
+            Container(
+              margin: EdgeInsets.all(10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('reading:'),
+                  _hidden[i]
+                      ? Container(
+                          margin: EdgeInsets.all(3),
+                          width: 80,
+                          height: 20,
+                          child: inputField,
+                        )
+                      : Wrap(children: [Text((option['kunreadings']).join(', '))]),
+                ],
+              ),
+            ),
+            Container(
+              margin: EdgeInsets.all(10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('meaning:'),
+                  !_hidden[i]
+                      ? Container(
+                          margin: EdgeInsets.all(3),
+                          width: 80,
+                          height: 20,
+                          child: inputField,
+                        )
+                      : Text((option['meanings']).join(', ')),
+                ],
+              ),
+            ),
+            Draggable<String>(
+              data: option['literal'],
+              feedback: Material(
+                child: Container(
+                  decoration: dragDeco,
+                  width: 80,
+                  height: 80,
+                  child: Center(child: Text(option['literal'])),
+                ),
+              ),
+              child: _isDropped
+                  ? Container(decoration: dragDeco, width: 100, height: 100)
                   : Container(
                       decoration: dragDeco,
-                      child: Center(child: Text(acceptedData)),
+                      width: 80,
+                      height: 80,
+                      child: Center(child: Text(option['literal'])),
                     ),
-            );
-          },
-          onAcceptWithDetails: (details) {
-            setState(() {
-              acceptedData = details.data;
-              _isDropped = true;
-            });
-          },
-        ),
-        SizedBox(
-          child: Row(
-            children: [
-              Text('reading:'),
-              widget.readingHidden
-                  ? SizedBox(width: 80, height: 30, child: inputField)
-                  : Text('reading'),
-            ],
-          ),
-        ),
-        SizedBox(
-          child: Row(
-            children: [
-              Text('meaning:'),
-              widget.meaningHidden
-                  ? SizedBox(width: 80, height: 30, child: inputField)
-                  : Text('meaning'),
-            ],
-          ),
-        ),
-        Draggable<String>(
-          data: option,
-          feedback: Material(
-            child: Container(
-              decoration: dragDeco,
-              width: 100,
-              height: 100,
-              child: Center(child: Text(option)),
             ),
-          ),
-          child: _isDropped
-              ? Container(decoration: dragDeco, width: 100, height: 100)
-              : Container(
-                  decoration: dragDeco,
-                  width: 100,
-                  height: 100,
-                  child: Center(child: Text(option)),
-                ),
-        ),
-      ],
+          ],
+        );
+      }).toList(),
     );
   }
 }
@@ -666,20 +810,13 @@ BoxDecoration dragDeco = BoxDecoration(
   ],
 );
 
-Widget inputField = Container(decoration: dragDeco, child: TextField(
-  decoration: InputDecoration(
-    border: InputBorder.none,
-    contentPadding: EdgeInsets.symmetric(horizontal: 5)
+Widget inputField = Container(
+  decoration: dragDeco,
+  child: TextField(
+    style: TextStyle(fontSize: 14),
+    decoration: InputDecoration(
+      border: InputBorder.none,
+      //contentPadding: EdgeInsets.symmetric(vertical: 2)
+    ),
   ),
-));
-
-
-/*
-pressing learn starts a new quiz session
-for each quiz
-2 new kanji - 3 q's in a session 
-  first is input onyomi guessing -> these will be the first two introduced at the start of a session
-  alternative
-3 kanji know the onyomi  - 4 q types, 2 kun , 2 meanigns, 1 input each
-2 vocab 
-*/
+);

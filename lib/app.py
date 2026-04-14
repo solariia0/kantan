@@ -66,85 +66,6 @@ def get_kanji(user_id: int, kanji_list: dict = Body(...)):
         connection.execute(insert_sql, data)
         connection.commit()
 
-# re write this with user login
-@app.get("/quiz/onyomi/{user_id}")
-def get_new_kanji(user_id: int):
-    sql = text(
-        """
-        ( SELECT 
-            krad.radicals, 
-            k.literal, 
-            k.onreadings,
-            k.kunreadings,
-            k.meanings,
-            k.id
-        FROM kradfile AS krad
-        JOIN (
-            SELECT 
-                k.literal, 
-                k.id,
-                krm.onreadings,
-                krm.kunreadings,
-                krm.meanings
-            FROM kanjidic2 k
-            JOIN kanjidic2ReadingMeaning krm 
-                ON krm.kanji_id = k.id
-            LEFT JOIN user_kanji u 
-                ON k.id = u.kanji_id 
-                AND u.user_id = :user_id
-            WHERE u.kanji_id IS NULL
-            AND k.jlptLevel = (
-                SELECT level FROM users WHERE id = :user_id
-            )
-        ) AS k 
-            ON k.literal = krad.krad_literal
-        WHERE EXISTS (
-            SELECT 1
-            FROM kanjidic2 k2
-            JOIN user_kanji u2 
-                ON k2.id = u2.kanji_id
-            WHERE u2.user_id = :user_id
-            AND k2.literal = ANY(krad.radicals)
-        )
-        ORDER BY RANDOM()
-        LIMIT 3)
-        UNION ALL
-        ( SELECT 
-            krad.radicals, 
-            k.literal, 
-            k.onreadings,
-            k.kunreadings,
-            k.meanings,
-            k.id
-        FROM kradfile AS krad
-        JOIN (
-            SELECT 
-                k.literal, 
-                k.id,
-                krm.onreadings,
-                krm.kunreadings,
-                krm.meanings
-            FROM kanjidic2 k
-            JOIN kanjidic2ReadingMeaning krm 
-                ON krm.kanji_id = k.id
-            LEFT JOIN user_kanji u 
-                ON k.id = u.kanji_id 
-                AND u.user_id = :user_id
-            WHERE u.kanji_id IS NULL
-            AND k.jlptLevel = (
-                SELECT level FROM users WHERE id = :user_id
-            )
-        ) AS k 
-            ON k.literal = krad.krad_literal
-        ORDER BY RANDOM()
-        LIMIT 3)
-        """
-    )
-    
-    with engine.connect() as conn:
-        result = conn.execute(sql, {"user_id": user_id}).all()
-        result_dicts = [dict(row._mapping) for row in result]
-    return result_dicts
 
 @app.get("/quiz/kunyomi/{user_id}")
 def get_new_kanji(user_id: int):
@@ -241,3 +162,63 @@ def get_total(user_id: int):
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts
 
+# get streak info
+@app.get('/{user_id}/streak')
+def get_streak(user_id: int):
+    sql = text("""
+        SELECT s.practiced_at, s.practiced
+        FROM user_streaks s
+        WHERE s.user_id = :user_id
+        AND s.practiced_at::date >= CURRENT_TIMESTAMP - INTERVAL '6 days' ORDER BY s.practiced_at ASC
+        """)
+    
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"user_id": user_id}).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
+
+# quiz queries
+
+
+# get new kanji
+@app.get("/quiz/onyomi/{user_id}")
+def get_new_kanji(user_id: int):
+    sql = text(
+        """
+        WITH filtered_radicals AS (
+        SELECT
+            krad.krad_literal AS kanji,
+            filtered.user_radicals
+        FROM kradfile krad
+        LEFT JOIN LATERAL (
+            SELECT array_agg(k.literal) AS user_radicals
+            FROM kanjidic2 k
+            JOIN user_kanji u ON u.kanji_id = k.id
+            WHERE u.user_id = 1
+            AND k.literal = ANY(krad.radicals)
+        ) AS filtered ON TRUE
+        ) SELECT 
+            k.id,
+            k.literal,
+            krm.onreadings,
+            krm.kunreadings,
+            krm.meanings,
+            krad.radicals,
+            f.user_radicals
+        FROM kanjidic2 k
+        JOIN kanjidic2ReadingMeaning krm ON krm.kanji_id = k.id
+        JOIN kradfile krad ON krad.krad_literal = k.literal
+        JOIN filtered_radicals f ON f.kanji = krad.krad_literal
+        LEFT JOIN user_kanji u ON u.kanji_id = k.id AND u.user_id = 1
+        WHERE k.jlptLevel = (
+            SELECT level FROM users WHERE id = 1
+        ) AND u.kanji_id IS NULL 
+        ORDER BY RANDOM()
+        LIMIT 3;
+        """
+    )
+    
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"user_id": user_id}).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts

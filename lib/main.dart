@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-// pages
+import 'package:xml/xml.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:kantan/settings.dart';
 import 'kanji_page.dart';
 import 'package:kantan/quiz_page.dart';
 
 void main() {
   runApp(const MainApp());
 }
+
+late XmlDocument kanjivg;
+Map<String, String> kanjiToId = {};
 
 // themes and colors
 final int boxoutline = 0xFF4D92B4;
@@ -18,8 +23,42 @@ final int blueDarker = 0xFF305B70;
 final int bg = 0xFF222A46;
 final int accentblue = 0xFF222A46;
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> {
+  Future<void> extractKanjiSvg() async {
+    final kanjivgpath = 'assets/kanjivg-20250816.xml';
+    final kanjivgxml = await rootBundle.loadString(kanjivgpath);
+    kanjivg = XmlDocument.parse(kanjivgxml);
+
+    // kanjiid mapping
+    final kanjiElement = kanjivg.findAllElements('kanji');
+    for (var element in kanjiElement) {
+      final idAttr = element.getAttribute('id');
+      final id = idAttr?.split(':').last;
+
+      final gElement = element.getElement('g');
+      if (gElement != null) {
+        final kanjiChar = gElement.getAttribute('kvg:element');
+        if (kanjiChar != null && id != null) {
+          kanjiToId[kanjiChar] = id;
+        }
+      }
+    }
+
+    print('done mapping');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    extractKanjiSvg();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +97,7 @@ class MainArea extends StatelessWidget {
   final List<Widget> _pageWidgets = const [
     QuizzPage(),
     KanjiPage(),
-    Text('settings'),
+    SettingsPage(),
   ];
 
   const MainArea({super.key});
@@ -86,8 +125,39 @@ class MainArea extends StatelessWidget {
 // navigation notifier
 ValueNotifier<int> pageNotifier = ValueNotifier(0);
 
-class SideBar extends StatelessWidget {
+class SideBar extends StatefulWidget {
   const SideBar({super.key});
+
+  @override
+  State<SideBar> createState() => _SideBarState();
+}
+
+class _SideBarState extends State<SideBar> {
+  List<Widget> streakCircles = [];
+  String streakText = '';
+
+  Future<void> _updateStreakWidget() async {
+    List<dynamic> data = await getData('1/streak');
+
+    setState(() {
+    streakText = "${data.length} Day streak";
+
+    for (var day in data) {
+      streakCircles.add(
+        Icon(
+          Icons.circle,
+          color: day['practiced'] ? Colors.indigoAccent : Colors.blueAccent,
+        ),
+      );
+    }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _updateStreakWidget();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +169,8 @@ class SideBar extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container( // home button
+          Container(
+            // home button
             margin: EdgeInsets.all(5),
             width: 200, // this may break idk
             child: OutlinedButton.icon(
@@ -116,27 +187,21 @@ class SideBar extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    // futurebuildder
-                    Container(padding: EdgeInsets.all(5), child: Icon(Icons.circle, size: 40, color: Colors.indigoAccent,)),
-                    Text('5 day streak!')
-                    // 'X day streak! /  Dont break your streak / Start a new streak'
+                    Container(
+                      padding: EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.circle,
+                        size: 40,
+                        color: Colors.indigoAccent,
+                      ),
+                    ),
+                    Text(streakText),
                   ],
                 ),
-                Row(
-                  children: [
-                    // automate this ig?
-                    Icon(Icons.circle, color: Colors.indigoAccent,),
-                    Icon(Icons.circle, color: Colors.blueGrey,),
-                    Icon(Icons.circle, color: Colors.indigoAccent,),
-                    Icon(Icons.circle, color: Colors.indigoAccent,),
-                    Icon(Icons.circle, color: Colors.indigoAccent,),
-                    Icon(Icons.circle, color: Colors.indigoAccent,),
-                    Icon(Icons.circle, color: Colors.indigoAccent,)
-                  ],
-                )
+                Row(children: streakCircles),
               ],
             ),
-            ),
+          ),
           Container(
             margin: EdgeInsets.all(5),
             child: Row(
@@ -185,9 +250,9 @@ class SideBar extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Vocab Learned', textAlign: TextAlign.center,),
+                        Text('Vocab Learned', textAlign: TextAlign.center),
                         // futurue builder
-                        Text('20', style: TextStyle(fontSize: 35),),
+                        Text('20', style: TextStyle(fontSize: 35)),
                       ],
                     ),
                   ),
@@ -272,8 +337,8 @@ class QuizModeBar extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Current mode:', style: TextStyle(fontSize: 25),),
-          Text('JLPT - N3', style: TextStyle(fontSize: 20),),
+          Text('Current mode:', style: TextStyle(fontSize: 25)),
+          Text('JLPT - N3', style: TextStyle(fontSize: 20)),
         ],
       ),
     );
@@ -299,7 +364,6 @@ final selecteditemdeco = BoxDecoration(
   color: Color(boxoutline),
   borderRadius: BorderRadius.circular(10),
 );
-
 
 // http stuff
 Future<List<dynamic>> getData(String path) async {

@@ -19,7 +19,13 @@ CREATE TABLE users (
     username VARCHAR(20) NOT NULL UNIQUE,
     mode VARCHAR(5) NOT NULL,
     level INT NOT NULL,
-    last_practiced timestamp
+    last_practiced timestamp DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_streaks (
+    user_id INT REFERENCES users(id),
+    practiced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP UNIQUE,
+    practiced BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE user_kanji (
@@ -55,3 +61,8 @@ CREATE TABLE user_vocab(
     user_id INT REFERENCES users(id),
     entry_id INT REFERENCES 
 );
+
+insert into users(username, mode, level) values ('user1', 'jlpt', 3);
+insert into user_streaks(user_id, practiced_at) values (1, '2026-04-13 00:00:00');
+insert into user_streaks(user_id, practiced_at) values (1, '2026-04-12 00:00:00');
+insert into user_streaks(user_id, practiced_at) values (1, '2026-04-10 00:00:00');
