@@ -214,7 +214,7 @@ def get_new_kanji(user_id: int):
             SELECT level FROM users WHERE id = 1
         ) AND u.kanji_id IS NULL 
         ORDER BY RANDOM()
-        LIMIT 3;
+        LIMIT 3
         """
     )
     

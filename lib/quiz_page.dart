@@ -107,6 +107,36 @@ class QuizArea extends StatefulWidget {
 }
 
 class _QuizAreaState extends State<QuizArea> {
+  void newQuiz() async {
+    List<dynamic> newKanji = await getData('path');
+    List newTracking = [for (var i = 0; i < newKanji.length; i++) 0];
+    List<dynamic> knownKanji = await getData('path');
+    List knownTracking = [for (var i = 0; i < newKanji.length; i++) 0];
+    List<dynamic> vocab = await getData('path');
+    List vocabTracking = [for (var i = 0; i < newKanji.length; i++) 0];
+
+    final List<List<dynamic>> stages = [newKanji, knownKanji, vocab];
+    final List stageAttempts = [newTracking, knownTracking, vocabTracking];
+
+    int stage = 0; // index for currentStage taken from stages
+    List currentStage = stages[stage];
+    int stageItem = 0; // index of currentKanji taken from currentStage
+    List<dynamic> currentKanji = currentStage[stageItem];
+
+    int kanjidicId = currentKanji['id'];
+
+    final List questionTypes = ['input', 'mcq', 'mcqdnd'];
+    int questionType = 0; // index for questionTypes
+    final List answerTypes = ['onyomi', 'kunyomi', 'meaning'];
+    int answerType = 0;
+
+    if (stage == 0 && stageAttempts[0][stageItem] == 0) {
+      questionType = 0;
+      
+      // answer type is based on flowchart
+    }
+  }
+
   // kanji info
   int kanjiId = 0; // id in kanjidic2 table
   int kanjiIndex = 0; // current kanji index
@@ -414,7 +444,7 @@ class _QuizAreaState extends State<QuizArea> {
                   allKanji: allKanji,
                 ),
               if (qType == 2)
-               McqDragnDrop(readingType: readingType, currentSet: currentSet)
+                McqDragnDrop(readingType: readingType, currentSet: currentSet),
             ],
           ),
         ],
@@ -754,7 +784,9 @@ class _McqDragnDropState extends State<McqDragnDrop> {
                           height: 20,
                           child: inputField,
                         )
-                      : Wrap(children: [Text((option['kunreadings']).join(', '))]),
+                      : Wrap(
+                          children: [Text((option['kunreadings']).join(', '))],
+                        ),
                 ],
               ),
             ),

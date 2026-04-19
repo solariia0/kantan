@@ -7,6 +7,6 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KanjiSVGDrag(paths: parseKanji(kanjivg, 'kvg:kanji_08526', ['鳥']));
+    return KanjiSVG(paths: parseKanji(kanjivg, 'kvg:kanji_08526', ['鳥']));
   }
 }

@@ -1,0 +1,39 @@
+quiz stage: new (onyomi + meaning), known (kunyomi), compound
+stage item: keeps track of which item is currently chosen
+item occurences: keeps track of how many times each item has been practiced in a session
+question type: what question type is currently selected
+
+answer type: is the answer going to be a reading or meaning
+
+needed for all:
+- kanji 
+- if applicable: known radicals
+
+    input question:
+    onyomi:
+    - meaning: if it's not the first instance 
+    - if applicable: alternative onyomi reading
+    - correct onyomi reading
+        kunyomi:
+        - same as onyomi
+        - kunyomi conjugation is taken off
+        - meaning is always present
+
+    compound:
+    - answer type
+        reading: 
+        - readings for each kanji and their corresponding
+    meaning:
+
+    what needs to be sent:
+    single:
+    kanjidic2 id
+    answer type
+    correct or not
+    if wrong, user answer
+
+
+    Mcq question:
+    - 
+
+    Mcq drag and drop:
