@@ -37,3 +37,49 @@ needed for all:
     - 
 
     Mcq drag and drop:
+
+
+      /*
+  input
+  start
+  - kanjisvg(kangvgid, userradical)
+  - depends on q type show => what is the x
+  - input box
+  depends on q type
+    correct + reading
+    - kanjisvg
+    - shows user inpu in green
+    - show alternative readings/meanign (if applicable)
+    - show the meanings/readings
+
+    wrong + reading
+    - kanjisvg
+    - shows user inpu in red
+    - shows the correct readings/meanin
+    - show the meanings
+
+  mcq
+  - kanjisvg(kangvgid, userradical)
+  - depends on q type show => what is the x
+  - options chosen from all items in the stage
+   show same as input for correct/wrong
+
+  mcqdnd
+  - kanjisvg data of all in teh stage
+  - each associated with reading type
+  - kanji itself
+  correct
+  - bg turn green
+  wrong
+  - bg turn red
+  - show the correct answer undearneath
+  
+   */
+
+   kanji
+   usertext (hidden)
+   subText
+   hintText
+
+
+   input if meaning hide alt meanigs but add button

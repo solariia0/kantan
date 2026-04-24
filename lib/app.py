@@ -1,11 +1,24 @@
 from fastapi import FastAPI, HTTPException, Query, Body
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, create_engine
+from fastapi.middleware.cors import CORSMiddleware
 
-DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmnew"
+DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmdict"
 engine = create_engine(DATABASE_URL, echo=True) 
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:44903",  # your frontend
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins='*',
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

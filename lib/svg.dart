@@ -30,7 +30,6 @@ Map parseKanji(XmlDocument kanjivg, String id, List radicals) {
     }
   }
 
-  print(paths);
 
   return paths;
 }

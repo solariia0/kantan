@@ -62,6 +62,12 @@ CREATE TABLE user_vocab(
     entry_id INT REFERENCES 
 );
 
+grant select on kanjidic2, kanjidic2ReadingMeaning, kradfile to jmdictdb;
+grant select, update, insert on user_kanji to jmdictdb;
+grant select, insert on users to jmdictdb;
+grant select, insert on user_streaks to jmdictdb;
+
+
 insert into users(username, mode, level) values ('user1', 'jlpt', 3);
 insert into user_streaks(user_id, practiced_at) values (1, '2026-04-13 00:00:00');
 insert into user_streaks(user_id, practiced_at) values (1, '2026-04-12 00:00:00');
