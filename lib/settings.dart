@@ -7,6 +7,20 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KanjiSVG(paths: parseKanji(kanjivg, 'kvg:kanji_08526', ['鳥']));
+    return Column(
+      children: [
+        FutureBuilder(
+          future: getData('mode'),
+          builder: (context, snapshot) {
+            return OutlinedButton(onPressed: () {
+              List<dynamic> currentMode = snapshot.data;
+              Map postData = {'user_id': 1, 'mode': }
+            },
+             child: Text('Switch mode'));
+          }
+        ),
+        KanjiSVG(paths: parseKanji(kanjivg, 'kvg:kanji_08526', ['鳥'])),
+      ],
+    );
   }
 }

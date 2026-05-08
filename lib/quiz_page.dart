@@ -143,33 +143,54 @@ class QuizController {
   final List<Stage> stages;
   int currentStageIndex = 0;
   int currentItemIndex = 0;
-  final Random random = Random();
+  bool quizOver = false;
 
   QuizController({required this.stages});
 
   Stage get currentStage => stages[currentStageIndex];
   QuizItem get currentItem => currentStage.items[currentItemIndex];
 
+  Future<String> phoneticRadical(QuizItem kanji) async{
+    List radicals = kanji.userRadicals;
+    for (String radical in radicals) {
+      List<dynamic> radReading = await getData('kanji/info/$radical');
+      for (String reading in radReading[0]['onreadings']) {
+        if (kanji.onReadings.contains(reading)) {
+          return reading;
+        } 
+      }
+    } return '';
+  }
+
   void changeQuestion() {
     stages[currentStageIndex].items[currentItemIndex].attempts++;
     print('currentitemindex : ${currentItemIndex}');
     print('currentitemindex : ${currentStageIndex}');
+
     if (currentItemIndex < currentStage.items.length - 1) {
-      currentItemIndex++;
+      currentItemIndex++; // increment
       print('increment');
     } else {
-      currentItemIndex = 0;
+      currentItemIndex = 0; // reset
       print('reset');
       if (currentStage.isComplete) {
-        if (currentStageIndex < stages.length - 1) currentStageIndex++;
+        if (currentStageIndex < stages.length - 1) currentStageIndex++; // increment stage
+        else {
+          quizOver = true;
+        }
       }
     }
   }
 
-  int selectQuestionType(int prevType) {
-    // 0 = input, 1 = mcq, 2 = mcqdnd
+  Future<int> selectQuestionType(int prevType) async{
+    // 0 = input, 1 = mcq, 2 = mcqdnd, 3 = no question
+    QuizItem kanji = currentStage.items[currentItemIndex];
+    String rad = await phoneticRadical(kanji);
     if (currentStageIndex == 0 && currentItem.attempts == 0) {
-      return 0;
+      if (rad == '') { // or if has semantic meaning, mcq instead maybe
+        return 3; // show info
+      }
+      return 0; 
     }
     while (prevType == 2) {
       // return either input or mcq if previous was mcqdnd
@@ -178,9 +199,14 @@ class QuizController {
     return random.nextInt(3);
   }
 
-  int selectAnswerType() {
+  Future<int> selectAnswerType() async{
     // 0 = onyomi, 1 = kunyomi, 2 = meaning
+    QuizItem kanji = currentStage.items[currentItemIndex];
+    String rad = await phoneticRadical(kanji);
     if (currentStageIndex == 0 && currentItem.attempts == 0) {
+      if (rad != '') {
+        return 0;
+      } // else if semantic meaning return 2
       return 0;
     }
     return random.nextInt(3);
@@ -225,9 +251,9 @@ class _QuizAreaState extends State<QuizArea> {
   List<QuizItem> allKanji = [];
 
   void initQuiz() async {
-    List<dynamic> newKanji = await getData('quiz/onyomi/1');
-    List<dynamic> knownKanji = await getData('quiz/onyomi/1');
-    List<dynamic> vocab = await getData('quiz/onyomi/1');
+    List<dynamic> newKanji = await getData('quiz/jlpt/onyomi/1');
+    List<dynamic> knownKanji = await getData('quiz/jlpt/kunyomi/1');
+    List<dynamic> vocab = await getData('quiz/vocab/1');
 
     List sets = [newKanji, knownKanji, vocab];
 
@@ -256,7 +282,7 @@ class _QuizAreaState extends State<QuizArea> {
     setQuestion();
   }
 
-  int questionType = 3;
+  int questionType = 4;
   int answerType = 0;
   String answer = '';
 
@@ -272,14 +298,16 @@ class _QuizAreaState extends State<QuizArea> {
   List<Map<String, dynamic>> dndOptions = [];
   // [{kanji: QuizItem.kanji, readings: QuizItem.readings, meanings: QuizItems.meanings}]
   List answers = [];
+  List relevantRads = [];
 
-  void setQuestion() {
+  void setQuestion() async{
+    int answerType = await quizController.selectAnswerType();
+    int prevType = questionType;
+    questionType = await quizController.selectQuestionType(prevType);
     setState(() {
       userText = '';
-      int prevType = questionType;
-      questionType = quizController.selectQuestionType(prevType);
+      relevantRads = [];
       print('currentitem index: ${quizController.currentItemIndex}');
-      int answerType = quizController.selectAnswerType();
       print(answerType);
       QuizItem currentQuizItem = stages[quizController.currentStageIndex].items[quizController.currentItemIndex];
       print('attempts: ${currentQuizItem.attempts}');
@@ -290,7 +318,7 @@ class _QuizAreaState extends State<QuizArea> {
       print('item index: ${quizController.currentItemIndex}');
       print('qtype: $questionType');
       svgId = kanjiToId[currentQuizItem.kanji]!;
-      userRadicals = currentQuizItem.userRadicals;
+      relevantRads.add(quizController.phoneticRadical(currentQuizItem));
 
       if (answerType == 0) {
         subText = 'What is the onyomi reading?';
@@ -365,13 +393,16 @@ class _QuizAreaState extends State<QuizArea> {
   void checkAns(String userAns) {
     QuizItem currentQuizItem = stages[quizController.currentStageIndex].items[quizController.currentItemIndex];
     bool meaning = questionType == 2;
+     Map postData = {"kanji_id": quizController.currentItem.id, "correct": 0, "wrong": 0};
     setState(() {
       if (!meaning) {
           userAns = kanaKit.toKatakana(userAns);
          if (userAns == answer) {
         ansColor = Color(0xFF3ACB9E);
+        postData['correct'] = 1;
       } else {
         ansColor = Color(0xFFCB3A74);
+        postData['wrong'] = 1;
       }
         if (answerType == 0) {
           subText = 'onyomi: ${currentQuizItem.onReadings.join(', ')}';
@@ -382,12 +413,19 @@ class _QuizAreaState extends State<QuizArea> {
       } else {
         hintText = 'kunyomi: ${currentQuizItem.kunReadings.join(', ')} | onyomi: ${currentQuizItem.onReadings.join(', ')}';
         subText = currentQuizItem.meanings.join(', ');
-        if (answers.contains(userAns)) {ansColor = Color(0xFF3ACB9E);}
-        else {ansColor = Color(0xFFCB3A74);}
+        if (answers.contains(userAns)) {
+          ansColor = Color(0xFF3ACB9E);
+          postData['correct'] = 1;
+          }
+        else {
+          ansColor = Color(0xFFCB3A74);
+          postData['wrong'] = 1;
+          }
       }
       userText = userAns;
       answered = true;
     });
+    sendData('user_kanji/1/onyomi', postData);
   }
 
   void changeQuestion() {
@@ -465,12 +503,14 @@ class _QuizAreaState extends State<QuizArea> {
         children: [
           Column(
             children: [
-              if(questionType == 3)
+              if(questionType == 4)
               Text('Loading....', style: TextStyle(fontSize: 50),),
+              if (questionType == 3)
+              DisplayKanji(kanji: quizController.currentStage.items[quizController.currentItemIndex], changeQuestion: changeQuestion),
               if (questionType == 0)
-                InputQ(svgId: svgId, userRadicals: userRadicals, answered: answered, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, userText: userText, subText: subText, ansColor: ansColor, hintText: hintText),
+                InputQ(svgId: svgId, relevantRads: relevantRads, answered: answered, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, userText: userText, subText: subText, ansColor: ansColor, hintText: hintText),
               if (questionType == 1)
-               Mcq(key: ValueKey(quizController.currentItemIndex), answered: answered, userText: userText, ansColor: ansColor, svgId: svgId, userRadicals: userRadicals, options: mcqOptions, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, subText: subText, hintText: hintText),
+               Mcq(key: ValueKey(quizController.currentItemIndex), answered: answered, userText: userText, ansColor: ansColor, svgId: svgId, relevantRads: relevantRads, options: mcqOptions, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, subText: subText, hintText: hintText),
               if (questionType == 2)
               McqDnDContainer(key: ValueKey(quizController.currentItemIndex), kanjiBg: kanjiBg, readingBg: readingBg, meaningBg: meaningBg, options: dndOptions, checkDndAns: (kanji, readings, meanings) {checkDndAns(kanji, readings, meanings);}, changeQuestion: changeQuestion)
             ],
@@ -481,10 +521,29 @@ class _QuizAreaState extends State<QuizArea> {
   }
 }
 
+class DisplayKanji extends StatelessWidget {
+  final QuizItem kanji;
+  final Function changeQuestion;
+  const DisplayKanji({super.key, required this.kanji, required this.changeQuestion});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+    children: [
+    Text(kanji.kanji),
+    Text('onyomi: ${(kanji.onReadings).join(', ')}'),
+    Text('kunyomi: ${(kanji.kunReadings).join(', ')}'),
+    Text('meaning: ${(kanji.meanings).join(', ')}'),
+    OutlinedButton(onPressed: (){changeQuestion();}, child: Text('next')),
+    ],
+    );
+  }
+}
+
 class InputQ extends StatefulWidget {
   bool answered;
   final String svgId;
-  final List userRadicals;
+  final List relevantRads;
   String userText;
   String hintText;
   String subText;
@@ -495,7 +554,7 @@ class InputQ extends StatefulWidget {
   InputQ({
     super.key,
     required this.svgId,
-    required this.userRadicals,
+    required this.relevantRads,
     required this.answered,
     required this.changeQuestion,
     required this.checkAns,
@@ -527,7 +586,7 @@ class _InputQState extends State<InputQ> {
               paths: parseKanji(
                 kanjivg,
                 "kvg:${widget.svgId}",
-                widget.userRadicals,
+                widget.relevantRads,
               ),
             ),
           ),
@@ -590,7 +649,7 @@ class _InputQState extends State<InputQ> {
 class Mcq extends StatefulWidget {
   final String svgId;
   bool answered;
-  final List userRadicals;
+  final List relevantRads;
   final List options;
   String userText;
   String subText;
@@ -605,7 +664,7 @@ class Mcq extends StatefulWidget {
     required this.userText,
     required this.ansColor,
     required this.svgId,
-    required this.userRadicals,
+    required this.relevantRads,
     required this.options,
     required this.changeQuestion,
     required this.checkAns,
@@ -633,7 +692,7 @@ class _McqState extends State<Mcq> {
               paths: parseKanji(
                 kanjivg,
                 "kvg:${widget.svgId}",
-                widget.userRadicals,
+                widget.relevantRads,
               ),
             ),
           ),
