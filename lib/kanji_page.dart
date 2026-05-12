@@ -10,10 +10,20 @@ class KanjiPage extends StatefulWidget {
 
 class _KanjiPageState extends State<KanjiPage> {
   int currentPage = 1;
-  String mode = 'jlpt'; // fetch from user settings
-  String level = '4'; // this too
+
+  String mode = 'jlpt';
+  String level = '4';
+
+  void fetchUserData () async {
+    List<dynamic> data = await getData('1');
+    setState(() {
+      mode = '${data[0]['mode']}';
+      level = '${data[0]['level']}';
+    });
+    getKanjiList();
+  }
+   
   List<Widget> kanjiList = [];
-  // make sidebar invisible when this page is loaded
 
   List<String> selectedKanji = [];
   void getKanjiList() async {
@@ -87,7 +97,7 @@ class _KanjiPageState extends State<KanjiPage> {
   @override
   void initState() {
     super.initState();
-    getKanjiList();
+    fetchUserData();
   }
 
   @override
@@ -192,6 +202,20 @@ class _KanjiPageState extends State<KanjiPage> {
           child: Wrap(spacing: 10, runSpacing: 10, children: kanjiList
            )
           ),
+        Row(
+          children: [
+            OutlinedButton(onPressed: () {
+              setState(() {
+                currentPage++;
+                getKanjiList();
+              });
+            }, child: Text('< $currentPage')),
+            OutlinedButton(onPressed: () {
+              if (currentPage > 1) currentPage--;
+              getKanjiList();
+            }, child: Text('${currentPage++} >'))
+          ],
+        )
       ],
     );
   }

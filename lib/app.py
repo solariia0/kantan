@@ -3,13 +3,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, create_engine
 from fastapi.middleware.cors import CORSMiddleware
 
+
 DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmdict"
 engine = create_engine(DATABASE_URL, echo=True) 
 
 app = FastAPI()
 
+
 origins = [
-    "http://localhost:44903",  # your frontend
+    "http://localhost:44903",
 ]
 
 app.add_middleware(
@@ -23,13 +25,23 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return {"msg": "Kantan is running"}
+
+# return user information
+@app.get('/{user_id}')
+def get_user(user_id: int):
+    sql = text('select * from users where users.id = :user_id')
+    with engine.connect() as conn:
+        result = conn.execute(sql, {'user_id': user_id}).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
+
 
 # get kanji values for managing kanji
 @app.get("/jlpt/{level}/{page_number}")
 def get_kanji(level: int, page_number: int):
-    offset = 35 * (page_number - 1)
-    sql = text('select k.literal from kanjidic2 as k where jlptLevel = :level OFFSET :offset ')
+    offset = 50 * (page_number - 1)
+    sql = text('select k.literal from kanjidic2 as k where jlptLevel = :level LIMIT 50 OFFSET :offset')
     with engine.connect() as conn:
         result = conn.execute(sql, {'offset': offset, 'level': level}).all()
         result_dicts = [dict(row._mapping) for row in result]
@@ -37,8 +49,8 @@ def get_kanji(level: int, page_number: int):
 
 @app.get("/grade/{level}/{page_number}")
 def get_kanji(level: int, page_number: int):
-    offset = 35 * (page_number - 1)
-    sql = text('select k.literal from kanjidic2 as k where grade = :level LIMIT 35 OFFSET :offset ')
+    offset = 50 * (page_number - 1)
+    sql = text('select k.literal from kanjidic2 as k where grade = :level LIMIT 50 OFFSET :offset ')
     with engine.connect() as conn:
         result = conn.execute(sql, {'offset': offset, 'level': level}).all()
         result_dicts = [dict(row._mapping) for row in result]
@@ -60,6 +72,7 @@ def get_kanji(kanji: str):
     return result_dicts
 
 # get the id of selected kanji
+# get rid of this and replace usage with kanji info
 @app.get("/kanji_id")
 def get_kanji(kanji: list[str] = Query(...)):
     sql = text("""
@@ -94,8 +107,8 @@ def get_kanji(user_id: int, kanji_list: dict = Body(...)):
         connection.execute(insert_sql, data)
         connection.commit()
 
-@app.post("/mode/{user_id}")
-def get_kanji(user_id: int):
+@app.post("/{user_id}/mode/{mode}")
+def update_mode(user_id: int, mode: str):
     insert_sql = text(
         """
         INSERT INTO users (id, mode)
@@ -107,9 +120,8 @@ def get_kanji(user_id: int):
         connection.execute(insert_sql,  {"user_id": user_id, "mode": mode})
         connection.commit()
 
-
-
 # turn this into one function with url query?
+#update
 @app.post("/user_kanji/{user_id}/onyomi")
 def get_kanji(user_id: int, body: dict = Body(...)):
     insert_sql = text(
@@ -215,7 +227,7 @@ def get_streak(user_id: int):
 
 
 # get new kanji
-@app.get("/quiz/jlpt/onyomi/{user_id}")
+@app.get("/quiz/jlpt/new/{user_id}")
 def get_new_kanji(user_id: int):
     sql = text(
         """
@@ -256,7 +268,7 @@ def get_new_kanji(user_id: int):
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts
 
-@app.get("/quiz/grade/onyomi/{user_id}")
+@app.get("/quiz/grade/new/{user_id}")
 def get_new_kanji(user_id: int):
     sql = text(
         """
@@ -297,7 +309,7 @@ def get_new_kanji(user_id: int):
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts
 
-@app.get("/quiz/grade/kunyomi/{user_id}")
+@app.get("/quiz/grade/known/{user_id}")
 def get_new_kanji(user_id: int):
     sql = text(
         """
@@ -398,19 +410,5 @@ SELECT
 """)
     with engine.connect() as conn:
         result = conn.execute(sql, {"user_id": user_id}).all()
-        result_dicts = [dict(row._mapping) for row in result]
-    return result_dicts
-
-@app.get('/test')
-def test():
-    sql = text("""
-SELECT distinct k.txt AS kanji, r.txt AS reading
-FROM kanj k
-JOIN rdng r ON k.entr = r.entr
-               where length(k.txt) = 2;
-""")
-    
-    with engine.connect() as conn:
-        result = conn.execute(sql).all()
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts

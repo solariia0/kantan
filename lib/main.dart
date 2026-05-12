@@ -137,7 +137,7 @@ class _SideBarState extends State<SideBar> {
   String streakText = '';
 
   Future<void> _updateStreakWidget() async {
-    List<dynamic> data = await getData('/streak/1');
+    List<dynamic> data = await getData('streak/1');
 
     setState(() {
     streakText = "${data.length} Day streak";
@@ -373,7 +373,7 @@ Future<List<dynamic>> getData(String path) async {
   if (response.statusCode == 200) {
     return jsonDecode(response.body);
   } else {
-    throw Exception(response.statusCode);
+    throw Exception();
   }
 }
 

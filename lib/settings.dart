@@ -9,6 +9,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        /*
         FutureBuilder(
           future: getData('mode'),
           builder: (context, snapshot) {
@@ -18,7 +19,7 @@ class SettingsPage extends StatelessWidget {
             },
              child: Text('Switch mode'));
           }
-        ),
+        ),*/
         KanjiSVG(paths: parseKanji(kanjivg, 'kvg:kanji_08526', ['鳥'])),
       ],
     );

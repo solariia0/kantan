@@ -147,7 +147,98 @@ JOIN filtered_radicals f ON f.kanji = krad.krad_literal
 LEFT JOIN user_kanji u ON u.kanji_id = k.id AND u.user_id = 1
 WHERE k.jlptLevel = (
     SELECT level FROM users WHERE id = 1
-) AND u.kanji_id IS NULL AND u.kun_accuracy < 70;
+) AND u.kun_attempts = 0
+order by random()
+limit 3;
+
+-- 
+/*
+for onyomi 
+radical to corresponding onyomi reading by frequency percentage
+radical to semantic grouping 
+*/
+
+select * from kanj 
+join kinf on kinf.entr = kanj.entr  and kinf.kanj = kanj.kanj 
+join kwkinf on kwkinf.id = kinf.kw ;
+where kanj.txt LIKE'心';
+
+
+-- gettting vocab matches
+select * from (
+SELECT 
+  * from vocab where NOT EXISTS (
+  SELECT 1
+  FROM unnest(string_to_array(vocab.kanji, NULL)) AS ch
+  LEFT JOIN kanjidic2 k ON k.literal = ch
+  LEFT JOIN user_kanji uk 
+    ON uk.kanji_id = k.id AND uk.user_id = 1
+  WHERE uk.kanji_id IS NULL
+)
+) vocab order by random() limit 3;
+
+-- alt
+select * from (
+    select * from vocab
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM regexp_split_to_table(vocab.kanji, '') AS ch
+  JOIN kanjidic2 k USING (k.literal)
+  LEFT JOIN user_kanji uk
+    ON uk.kanji_id = k.id AND uk.user_id = 1
+  WHERE uk.kanji_id IS NULL
+)
+) vocab order by random() limit 3;
+
+
+-- review onyomi
+ SELECT 
+    k.id,
+    k.literal,
+    k.onreadings,
+    k.kunreadings,
+    k.meanings,
+    krad.radicals,
+from kanjidic2 k
+join kradfile krad on krad.literal = k.literal
+where k.on_accuracy < 70;
+
+-- review kunyomi
+ SELECT 
+    k.id,
+    k.literal,
+    k.onreadings,
+    k.kunreadings,
+    k.meanings,
+    krad.radicals,
+from kanjidic2 k
+join kradfile krad on krad.literal = k.literal
+where k.kun_accuracy < 70;
+
+-- review kunyomi
+ SELECT 
+    k.id,
+    k.literal,
+    k.onreadings,
+    k.kunreadings,
+    k.meanings,
+    krad.radicals,
+from kanjidic2 k
+join kradfile krad on krad.literal = k.literal
+where k.reading_accuracy < 70;
+
+-- review kunyomi
+ SELECT 
+    k.id,
+    k.literal,
+    k.onreadings,
+    k.kunreadings,
+    k.meanings,
+    krad.radicals,
+from kanjidic2 k
+join kradfile krad on krad.literal = k.literal
+join user_vocab
+where k.reading_accuracy < 70;
 
 -- all jlpt level kanji info with user_radicals as user known radicals
 WITH filtered_radicals AS (
@@ -179,13 +270,14 @@ WHERE k.jlptLevel = (
     SELECT level FROM users WHERE id = 1
 );
 
--- get accuracy
+-- get overall accuracy
 select (u.on_accuracy + u.kun_accuracy + u.reading_accuracy) * 100 / (u.on_attempts + u.kun_attempts + u.reading_attempts) AS accuracy
 from user_kanji u
 join kanjidic2 k on k.id = u.kanji_id
 where u.user_id = 1 and k.jlptLevel = (select users.level from users where id = 1) group by u.kanji_id;
 
 -- get streak
+-- add none for unpracticed days
 SELECT s.practiced_at, s.practiced
 FROM user_streaks s
 WHERE s.user_id = 1

@@ -44,7 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-/assets/kanjidic2-all-3.6.1.json
+/assets/kanjidic2-all-3.6.2.json
 /ios
 /android
 /linux
@@ -52,3 +52,6 @@ app.*.map.json
 /windows
 /android
 /macos
+/assets/cc.en.300.bin
+/assets/kanjireading.json
+/assets/wiki-news-300d-1M.vec

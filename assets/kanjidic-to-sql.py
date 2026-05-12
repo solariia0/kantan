@@ -1,6 +1,6 @@
 import json
 
-with open('kanjidic2-all-3.6.1.json', 'r') as file:
+with open('kanjidic2-all-3.6.2.json', 'r') as file:
     data = json.load(file)
 
 id = 1
@@ -16,8 +16,7 @@ def pg_array_escape(lst):
 
 
 
-with open("kanjidic-inserts.sql", "w", encoding="utf-8") as f_kanji, \
-     open("kanjidic-rm-inserts.sql", "w", encoding="utf-8") as f_rm:
+with open("kanjidic-inserts-2.sql", "w", encoding="utf-8") as f_kanji:
 
     for kanji in data['characters']:
         literal = kanji['literal']
@@ -33,11 +32,6 @@ with open("kanjidic-inserts.sql", "w", encoding="utf-8") as f_kanji, \
                         level = line[1:]
                 if line == kanji['literal']:
                     jlptLevel = level
-
-        f_kanji.write(
-            f"INSERT INTO kanjidic2(literal, jlptLevel, grade, strokes)\n"
-            f"VALUES('{literal}', {jlptLevel}, {grade}, {strokes});\n"
-        )
 
         rm = kanji.get('readingMeaning', {})
         if not rm:
@@ -62,8 +56,8 @@ with open("kanjidic-inserts.sql", "w", encoding="utf-8") as f_kanji, \
         pg_kun = pg_array_escape(kunreadings)
         pg_mean = pg_array_escape(meaninglist)
 
-        f_rm.write(
-            f"INSERT INTO kanjidic2ReadingMeaning(kanji_id, onreadings, kunreadings, meanings)\n"
-            f"VALUES({id}, '{pg_on}', '{pg_kun}', '{pg_mean}');\n"
+        f_kanji.write(
+            f"INSERT INTO kanjidic2(literal, jlptLevel, grade, strokes,  onreadings, kunreadings, meanings)\n"
+            f"VALUES('{literal}', {jlptLevel}, {grade}, {strokes}, '{pg_on}', '{pg_kun}', '{pg_mean}');\n"
         )
         id+=1

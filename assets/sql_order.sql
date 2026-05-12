@@ -1,18 +1,4 @@
-CREATE TABLE kanjidic2(
-    id SERIAL PRIMARY KEY,
-    literal VARCHAR(5),
-    jlptLevel INT,
-    grade INT,
-    strokes INT
-);
 
-CREATE TABLE kanjidic2ReadingMeaning(
-    rmid SERIAL PRIMARY KEY,
-    kanji_id INT REFERENCES kanjidic2(id),
-    onreadings VARCHAR[],
-    kunreadings VARCHAR[],
-    meanings VARCHAR[]
-);
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -24,8 +10,19 @@ CREATE TABLE users (
 
 CREATE TABLE user_streaks (
     user_id INT REFERENCES users(id),
-    practiced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP UNIQUE,
+    practiced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     practiced BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE kanjidic2(
+    id SERIAL PRIMARY KEY,
+    literal VARCHAR(5),
+    jlptLevel INT,
+    grade INT,
+    strokes INT,
+       onreadings VARCHAR[],
+    kunreadings VARCHAR[],
+    meanings VARCHAR[]
 );
 
 CREATE TABLE user_kanji (
@@ -33,23 +30,22 @@ CREATE TABLE user_kanji (
     kanji_id INT REFERENCES kanjidic2(id),
     PRIMARY KEY (user_id, kanji_id),
     on_accuracy NUMERIC GENERATED ALWAYS AS ((on_correct * 100.0) / NULLIF(on_attempts, 0)) STORED,
-    on_attempts INT NOT NULL DEFAULT 70,
-    on_correct INT NOT NULL DEFAULT 70,
-    on_wrong INT NOT NULL DEFAULT 0,
+    on_attempts INT DEFAULT 0,
+    on_correct INT DEFAULT 0,
+    on_wrong INT DEFAULT 0,
     kun_accuracy  NUMERIC GENERATED ALWAYS AS ((kun_correct * 100.0) / NULLIF(kun_attempts, 0)) STORED,
-    kun_attempts INT NOT NULL DEFAULT 70,
-    kun_wrong INT NOT NULL DEFAULT 0,
-    kun_correct INT NOT NULL DEFAULT 70,
+    kun_attempts INT DEFAULT 0,
+    kun_wrong INT DEFAULT 0,
+    kun_correct INT DEFAULT 0,
     reading_accuracy  NUMERIC GENERATED ALWAYS AS ((reading_correct * 100.0) / NULLIF(reading_attempts, 0)) STORED,
-    reading_attempts INT NOT NULL DEFAULT 70,
-    reading_wrong INT NOT NULL DEFAULT 0,
-    reading_correct INT NOT NULL DEFAULT 70,
+    reading_attempts INT DEFAULT 0,
+    reading_wrong INT DEFAULT 0,
+    reading_correct INT DEFAULT 0,
     input_mistakes VARCHAR(20),
     mcq_mistakes VARCHAR [],
     last_practiced TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     manually_added BOOLEAN
 );
-
 
 CREATE TABLE kradfile (
     krad_id SERIAL PRIMARY KEY,
@@ -62,10 +58,29 @@ CREATE TABLE user_vocab(
     entry_id INT REFERENCES 
 );
 
-grant select on kanjidic2, kanjidic2ReadingMeaning, kradfile to jmdictdb;
+create view vocab as (
+    SELECT 
+  kanj.txt AS kanji,
+  rdng.txt AS reading,
+  gloss.txt AS meaning
+FROM kanj
+JOIN entr  ON entr.id = kanj.entr
+JOIN rdng  ON rdng.entr = entr.id
+JOIN sens  ON sens.entr = entr.id
+JOIN gloss ON gloss.entr = sens.entr AND gloss.sens = sens.sens
+WHERE gloss.lang = 1
+  AND LENGTH(kanj.txt) = 2
+);
+
+grant select on kanjidic2, kradfile to jmdictdb;
 grant select, update, insert on user_kanji to jmdictdb;
 grant select, insert on users to jmdictdb;
 grant select, insert on user_streaks to jmdictdb;
+grant select on vocab to jmdictdb;
+
+create index idx_user_kanji ON user_kanji(kanji_id, user_id);
+-- create index idx_vocab ON vocab(kanji);
+create index idx_kanji ON kanjidic2(id, literal);
 
 
 insert into users(username, mode, level) values ('user1', 'jlpt', 3);

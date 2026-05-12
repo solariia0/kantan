@@ -114,9 +114,12 @@ class QuizItem {
   final List<dynamic> onReadings;
   final List<dynamic> kunReadings;
   final List<dynamic> meanings;
-  final List<dynamic> userRadicals;
+  final List<dynamic> userKnownRadicals;
   final List<dynamic> kanjiRadicals;
+  List<dynamic>? phoneticRadical;
+  List<dynamic>? semanticRadical;
   int attempts;
+  final Future<List<dynamic>> Function(String path) getData;
 
   QuizItem({
     required this.id,
@@ -124,74 +127,97 @@ class QuizItem {
     required this.onReadings,
     required this.kunReadings,
     required this.meanings,
-    this.userRadicals = const [],
+    this.userKnownRadicals = const [],
     this.attempts = 0,
     required this.kanjiRadicals,
+    required this.getData
   });
+
+  // returns radical with phonetic significance
+  Future<String?> checkPhoneticSignificance() async {
+    // edge case if no radical list
+    for (String radical in userKnownRadicals) {
+      List<dynamic> radReadings = await getData('kanji/info/$radical');
+      for (String radReading in radReadings[0]['onreadings']) {
+        if (onReadings.contains(radReading)) {
+          return radical;
+        } 
+      }
+    } return null;
+  }
+
+  // implement checkSemanticSignificance
 }
 
 class Stage {
   final String name;
   List<QuizItem> items;
+  bool newFlag = false;
+  bool populated = false;
 
   Stage({required this.name, this.items = const []});
 
   bool get isComplete => items.every((item) => item.attempts >= 3);
+
+  Future<void> populateStage(getData) async {
+    // handle edge cases
+    // fetch user preferred mode
+    List kanjiList=[];
+    try {kanjiList = await getData('quiz/jlpt/$name/1');}
+    catch (e) {kanjiList = await getData('quiz/jlpt/new/1'); newFlag = true;}
+
+    List<QuizItem> tempItems = [];
+    QuizItem quizItem;
+    print('kanji list');
+    print(kanjiList);
+    for (var kanji in kanjiList) {
+      bool nullRads = kanji['user_radicals'] == null; // does the user know any radicals
+      quizItem = QuizItem(
+        id: kanji['id'],
+        kanji: kanji['literal'],
+        onReadings: kanji['onreadings'],
+        kunReadings: kanji['kunreadings'],
+        meanings: kanji['meanings'],
+        userKnownRadicals: nullRads? [] : kanji['user_radicals'],
+        kanjiRadicals: kanji['radicals'],
+        getData: getData
+      );
+      try {
+        tempItems.add(quizItem);
+      } catch (e) {print(e.toString());}
+    }
+    items = tempItems;
+    populated = true;
+
+    print('popluate $name ok');
+  }
 }
 
 class QuizController {
-  final List<Stage> stages;
+  final List<Stage> stages = [Stage(name: 'new'), Stage(name: 'known'), Stage(name: 'vocab')];
   int currentStageIndex = 0;
   int currentItemIndex = 0;
-  bool quizOver = false;
 
-  QuizController({required this.stages});
+  QuizController();
 
   Stage get currentStage => stages[currentStageIndex];
   QuizItem get currentItem => currentStage.items[currentItemIndex];
+  bool get quizOver => stages.every((stage) => stage.isComplete == true);
 
-  Future<String> phoneticRadical(QuizItem kanji) async{
-    List radicals = kanji.userRadicals;
-    for (String radical in radicals) {
-      List<dynamic> radReading = await getData('kanji/info/$radical');
-      for (String reading in radReading[0]['onreadings']) {
-        if (kanji.onReadings.contains(reading)) {
-          return reading;
-        } 
-      }
-    } return '';
-  }
 
-  void changeQuestion() {
-    stages[currentStageIndex].items[currentItemIndex].attempts++;
-    print('currentitemindex : ${currentItemIndex}');
-    print('currentitemindex : ${currentStageIndex}');
+  Future<int> selectQuestionType(int? prevType) async{
+    // 0 = input, 1 = mcq, 2 = mcqdnd, 3 = no question (just info)
 
-    if (currentItemIndex < currentStage.items.length - 1) {
-      currentItemIndex++; // increment
-      print('increment');
-    } else {
-      currentItemIndex = 0; // reset
-      print('reset');
-      if (currentStage.isComplete) {
-        if (currentStageIndex < stages.length - 1) currentStageIndex++; // increment stage
-        else {
-          quizOver = true;
-        }
-      }
-    }
-  }
+    String? phoneticRadical = await currentItem.checkPhoneticSignificance();
+    //String? semanticRadical = await currentItem.checkSemanticSignificance();
 
-  Future<int> selectQuestionType(int prevType) async{
-    // 0 = input, 1 = mcq, 2 = mcqdnd, 3 = no question
-    QuizItem kanji = currentStage.items[currentItemIndex];
-    String rad = await phoneticRadical(kanji);
+    // first occurence of new kanji
     if (currentStageIndex == 0 && currentItem.attempts == 0) {
-      if (rad == '') { // or if has semantic meaning, mcq instead maybe
-        return 3; // show info
-      }
-      return 0; 
+      if (phoneticRadical != null) {return 0;}
+      // else if (semanticRadical != null) {return 1;}
+      else {return 3;}
     }
+
     while (prevType == 2) {
       // return either input or mcq if previous was mcqdnd
       return random.nextInt(2);
@@ -199,15 +225,13 @@ class QuizController {
     return random.nextInt(3);
   }
 
-  Future<int> selectAnswerType() async{
-    // 0 = onyomi, 1 = kunyomi, 2 = meaning
-    QuizItem kanji = currentStage.items[currentItemIndex];
-    String rad = await phoneticRadical(kanji);
+  Future<int> selectAnswerType() async {
+    // 0 = onyomi, 1 = kunyomi, 2 = meaning, 3 = none
+    String? phoneticRadical= await currentItem.checkPhoneticSignificance();
     if (currentStageIndex == 0 && currentItem.attempts == 0) {
-      if (rad != '') {
-        return 0;
-      } // else if semantic meaning return 2
-      return 0;
+      if (phoneticRadical != null) {return 0;}
+      // else if (semanticRadical != null) {return 2;}
+      else {return 3;}
     }
     return random.nextInt(3);
   }
@@ -219,7 +243,7 @@ class QuizController {
   ) {
     List<String> options = [];
 
-    while (options.length < count) {
+    while (options.length <= count) {
       var candidate = allItems[random.nextInt(allItems.length)];
       String value = '';
       if (answerType == 0) {
@@ -232,54 +256,35 @@ class QuizController {
               catch (e) {value = 'error: $e';}}
       else if (answerType == 2) {
         value =
-              candidate.onReadings[random.nextInt(candidate.meanings.length)];}
+              candidate.meanings[random.nextInt(candidate.meanings.length)];}
       if (!options.contains(value)) options.add(value);
     }
 
     options.shuffle(random);
     return options;
   }
+
+  void changeQuestion() {
+    currentItem.attempts++;
+    print('old :currentitemindex : ${currentItemIndex}, currentStageIndex : ${currentStageIndex}');
+
+    if (!quizOver) {
+      if (!currentStage.isComplete) {
+        // reset item index
+        if (currentItemIndex >= currentStage.items.length-1) {currentItemIndex = 0;}
+        // increment item
+        else {currentItemIndex ++;} // increment item
+      } else {currentStageIndex ++; currentItemIndex=0;} // increment stage
+    }
+    print('new :currentitemindex : ${currentItemIndex}, currentStageIndex : ${currentStageIndex}');
+  }
 }
 
 class _QuizAreaState extends State<QuizArea> {
-  late QuizController quizController;
-  List<Stage> stages = [
-    Stage(name: "New Kanji", items: []),
-    Stage(name: "Known Kanji", items: []),
-    Stage(name: "Vocab", items: []),
-  ];
-  List<QuizItem> allKanji = [];
-
-  void initQuiz() async {
-    List<dynamic> newKanji = await getData('quiz/jlpt/onyomi/1');
-    List<dynamic> knownKanji = await getData('quiz/jlpt/kunyomi/1');
-    List<dynamic> vocab = await getData('quiz/vocab/1');
-
-    List sets = [newKanji, knownKanji, vocab];
-
-    setState(() {
-      for (int i = 0; i < stages.length; i++) {
-        Stage stage = stages[i];
-        for (var kanji in sets[i]) {
-          bool nullRads = kanji['user_radicals'] == null;
-          QuizItem quizItem = QuizItem(
-            id: kanji['id'],
-            kanji: kanji['literal'],
-            onReadings: kanji['onreadings'],
-            kunReadings: kanji['kunreadings'],
-            meanings: kanji['meanings'],
-            userRadicals: nullRads? [] : kanji['user_radicals'],
-            kanjiRadicals: kanji['radicals'],
-          );
-          stage.items.add(quizItem);
-          allKanji.add(quizItem);
-        }
-      }
-    });
-
-    quizController = QuizController(stages: stages);
-    print('quiz initialized');
-    setQuestion();
+  QuizController quiz = QuizController();
+  Future<void> initializeQuiz() async {
+    for (Stage stage in quiz.stages) {await stage.populateStage(getData);}
+    await setQuestion();
   }
 
   int questionType = 4;
@@ -299,38 +304,37 @@ class _QuizAreaState extends State<QuizArea> {
   // [{kanji: QuizItem.kanji, readings: QuizItem.readings, meanings: QuizItems.meanings}]
   List answers = [];
   List relevantRads = [];
+  List<QuizItem> allKanji = [];
 
-  void setQuestion() async{
-    int answerType = await quizController.selectAnswerType();
-    int prevType = questionType;
-    questionType = await quizController.selectQuestionType(prevType);
+  Future<void> setQuestion() async {
+    print('starting set question');
+    int answerTypeLate = await quiz.selectAnswerType();
+    int prevType = answerTypeLate;
+    int questionTypeLate = await quiz.selectQuestionType(prevType);
+    print('before set state ok');
     setState(() {
+      answerType = answerTypeLate;
+      questionType = questionTypeLate;
       userText = '';
       relevantRads = [];
-      print('currentitem index: ${quizController.currentItemIndex}');
-      print(answerType);
-      QuizItem currentQuizItem = stages[quizController.currentStageIndex].items[quizController.currentItemIndex];
-      print('attempts: ${currentQuizItem.attempts}');
-      print('on: ${currentQuizItem.onReadings}');
-      print('kun: ${currentQuizItem.kunReadings}');
-      print('meanings: ${currentQuizItem.meanings}');
-      print('stage index: ${quizController.currentStageIndex}');
-      print('item index: ${quizController.currentItemIndex}');
-      print('qtype: $questionType');
-      svgId = kanjiToId[currentQuizItem.kanji]!;
-      relevantRads.add(quizController.phoneticRadical(currentQuizItem));
+      svgId = kanjiToId[quiz.currentItem.kanji]!;
+      relevantRads.add(quiz.currentItem.phoneticRadical);
 
-      if (answerType == 0) {
+      print('setting up ok');
+      if (questionType != 3) {
+        if (answerType == 0) {
         subText = 'What is the onyomi reading?';
-        answers = List.from(currentQuizItem.onReadings);
+        answers = List.from(quiz.currentItem.onReadings);
         }
-      else if (answerType == 1) {subText = 'What is the kunyomi reading?';
-      answers = List.from(currentQuizItem.kunReadings);
-      print('kun answer :${currentQuizItem.kunReadings}');
+      else if (answerType == 1) {
+        subText = 'What is the kunyomi reading?';
+      answers = List.from(quiz.currentItem.kunReadings);
+      print('kun answer :${quiz.currentItem.kunReadings}');
       }
       else if (answerType == 2) {subText = 'What is the meaning?';
-      answers = List.from(currentQuizItem.meanings);
+      answers = List.from(quiz.currentItem.meanings);
       }
+      print('setting text ok');
       
       // selecting single answer for on/kun
       // meaning takes list answers
@@ -338,17 +342,27 @@ class _QuizAreaState extends State<QuizArea> {
       answers.remove(answer);
       bool altNull = answers.isEmpty;
       hintText = altNull? '' : 'alternative: ${answers.join(', ')}';
+      print('selct ans ok');
+      }
+      
+      for (var stage in quiz.stages) {
+          for (var item in stage.items) {
+            allKanji.add(item);
+          }
+        }
+        print('adding all kanji ok');
 
       if (questionType == 1) {
         mcqOptions = [];
         mcqOptions.add(answer);
-        print(mcqOptions.length);
-        mcqOptions = quizController.generateOptions(answerType, 3, allKanji);
-        print(mcqOptions.length);
+        print('before generating options');
+        mcqOptions = quiz.generateOptions(answerType, 3, allKanji);
         mcqOptions.shuffle();
+        print('mcq ok');
       } else if (questionType == 2) {
+
         dndOptions = [];
-        int currentStageLength = quizController.currentStage.items.length;
+        int currentStageLength = quiz.currentStage.items.length;
         kanjiBg = List.filled(currentStageLength, Color(boxoutline));
         readingBg = List.filled(currentStageLength, Color(boxoutline));
         meaningBg = List.filled(currentStageLength, Color(boxoutline));
@@ -357,7 +371,7 @@ class _QuizAreaState extends State<QuizArea> {
         List kanji = [];
         List readings = [];
         List meanings = [];
-        for (var item in stages[quizController.currentStageIndex].items) {
+        for (var item in quiz.currentStage.items) {
           kanji.add(item.kanji);
           readings.add(onKun? item.onReadings:item.kunReadings);
           meanings.add(item.meanings);        
@@ -391,9 +405,8 @@ class _QuizAreaState extends State<QuizArea> {
 
   // for input and mcq
   void checkAns(String userAns) {
-    QuizItem currentQuizItem = stages[quizController.currentStageIndex].items[quizController.currentItemIndex];
     bool meaning = questionType == 2;
-     Map postData = {"kanji_id": quizController.currentItem.id, "correct": 0, "wrong": 0};
+     Map postData = {"kanji_id": quiz.currentItem.id, "correct": 0, "wrong": 0};
     setState(() {
       if (!meaning) {
           userAns = kanaKit.toKatakana(userAns);
@@ -405,14 +418,14 @@ class _QuizAreaState extends State<QuizArea> {
         postData['wrong'] = 1;
       }
         if (answerType == 0) {
-          subText = 'onyomi: ${currentQuizItem.onReadings.join(', ')}';
+          subText = 'onyomi: ${quiz.currentItem.onReadings.join(', ')}';
         } else if (answerType == 1) {
-          subText = 'kunyomi: ${currentQuizItem.kunReadings.join(', ')}';
+          subText = 'kunyomi: ${quiz.currentItem.kunReadings.join(', ')}';
         }
-        hintText = currentQuizItem.meanings.join(', '); 
+        hintText = quiz.currentItem.meanings.join(', '); 
       } else {
-        hintText = 'kunyomi: ${currentQuizItem.kunReadings.join(', ')} | onyomi: ${currentQuizItem.onReadings.join(', ')}';
-        subText = currentQuizItem.meanings.join(', ');
+        hintText = 'kunyomi: ${quiz.currentItem.kunReadings.join(', ')} | onyomi: ${quiz.currentItem.onReadings.join(', ')}';
+        subText = quiz.currentItem.meanings.join(', ');
         if (answers.contains(userAns)) {
           ansColor = Color(0xFF3ACB9E);
           postData['correct'] = 1;
@@ -431,7 +444,7 @@ class _QuizAreaState extends State<QuizArea> {
   void changeQuestion() {
     setState(() {
       answered = false;
-      quizController.changeQuestion();
+      quiz.changeQuestion();
       setQuestion();
     });
   }
@@ -486,7 +499,7 @@ class _QuizAreaState extends State<QuizArea> {
   @override
   void initState() {
     super.initState();
-    initQuiz();
+    initializeQuiz();
   }
 
   @override
@@ -506,13 +519,13 @@ class _QuizAreaState extends State<QuizArea> {
               if(questionType == 4)
               Text('Loading....', style: TextStyle(fontSize: 50),),
               if (questionType == 3)
-              DisplayKanji(kanji: quizController.currentStage.items[quizController.currentItemIndex], changeQuestion: changeQuestion),
+              DisplayKanji(kanji: quiz.currentStage.items[quiz.currentItemIndex], changeQuestion: changeQuestion),
               if (questionType == 0)
                 InputQ(svgId: svgId, relevantRads: relevantRads, answered: answered, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, userText: userText, subText: subText, ansColor: ansColor, hintText: hintText),
               if (questionType == 1)
-               Mcq(key: ValueKey(quizController.currentItemIndex), answered: answered, userText: userText, ansColor: ansColor, svgId: svgId, relevantRads: relevantRads, options: mcqOptions, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, subText: subText, hintText: hintText),
+               Mcq(key: ValueKey(quiz.currentItemIndex), answered: answered, userText: userText, ansColor: ansColor, svgId: svgId, relevantRads: relevantRads, options: mcqOptions, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, subText: subText, hintText: hintText),
               if (questionType == 2)
-              McqDnDContainer(key: ValueKey(quizController.currentItemIndex), kanjiBg: kanjiBg, readingBg: readingBg, meaningBg: meaningBg, options: dndOptions, checkDndAns: (kanji, readings, meanings) {checkDndAns(kanji, readings, meanings);}, changeQuestion: changeQuestion)
+              McqDnDContainer(key: ValueKey(quiz.currentItemIndex), kanjiBg: kanjiBg, readingBg: readingBg, meaningBg: meaningBg, options: dndOptions, checkDndAns: (kanji, readings, meanings) {checkDndAns(kanji, readings, meanings);}, changeQuestion: changeQuestion)
             ],
           ),
         ],
