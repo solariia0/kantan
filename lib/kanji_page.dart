@@ -27,6 +27,7 @@ class _KanjiPageState extends State<KanjiPage> {
 
   List<String> selectedKanji = [];
   void getKanjiList() async {
+    print('currentPage $currentPage');
     try {
       List<dynamic> data = await getData('$mode/$level/$currentPage');
       if (data.isEmpty) {
@@ -142,6 +143,7 @@ class _KanjiPageState extends State<KanjiPage> {
               onPressed: () => {
                 setState(() {
                   level = '1';
+                  currentPage =1;
                   getKanjiList();
                 }),
               },
@@ -152,6 +154,7 @@ class _KanjiPageState extends State<KanjiPage> {
               onPressed: () => {
                 setState(() {
                   level = '2';
+                  currentPage =1;
                   getKanjiList();
                 }),
               },
@@ -162,6 +165,7 @@ class _KanjiPageState extends State<KanjiPage> {
               onPressed: () => {
                 setState(() {
                   level = '3';
+                  currentPage=1;
                   getKanjiList();
                 }),
               },
@@ -172,6 +176,7 @@ class _KanjiPageState extends State<KanjiPage> {
               onPressed: () => {
                 setState(() {
                   level = '4';
+                  currentPage=1;
                   getKanjiList();
                 }),
               },
@@ -182,6 +187,7 @@ class _KanjiPageState extends State<KanjiPage> {
               onPressed: () => {
                 setState(() {
                   level = '5';
+                  currentPage=1;
                   getKanjiList();
                 }),
               },
@@ -213,7 +219,7 @@ class _KanjiPageState extends State<KanjiPage> {
             OutlinedButton(onPressed: () {
               if (currentPage > 1) currentPage--;
               getKanjiList();
-            }, child: Text('${currentPage++} >'))
+            }, child: Text('${(currentPage+1)} >'))
           ],
         )
       ],

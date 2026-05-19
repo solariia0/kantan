@@ -10,7 +10,9 @@ const kanaKit = KanaKit();
 var random = Random();
 
 class QuizzPage extends StatefulWidget {
-  const QuizzPage({super.key});
+  ValueNotifier<int> quizLevel;
+  ValueNotifier<String> mode;
+  QuizzPage({super.key, required this.quizLevel, required this.mode});
 
   @override
   State<QuizzPage> createState() => _QuizzPageState();
@@ -23,13 +25,17 @@ class _QuizzPageState extends State<QuizzPage> {
   List<Widget> quizContent = [
     Text('learn new'),
     Text('pracitce mistakes'),
-    QuizArea(),
     Text('practice page'),
   ];
+
+  void addQuizPage() {
+    quizContent.add(QuizArea(mode: widget.mode.value));
+  }
 
   @override
   void initState() {
     super.initState();
+    addQuizPage();
   }
 
   @override
@@ -64,7 +70,7 @@ class _QuizzPageState extends State<QuizzPage> {
                         onPressed: () {
                           setState(() {
                             quizStarted = true;
-                            currentQuiz = 2;
+                            currentQuiz = 3;
                           });
                         },
                         child: Text('Learn'),
@@ -83,7 +89,7 @@ class _QuizzPageState extends State<QuizzPage> {
                       margin: EdgeInsets.all(5),
                       child: OutlinedButton(
                         onPressed: () {
-                          currentQuiz = 3;
+                          currentQuiz = 3;// add review
                           quizStarted = true;
                         },
                         child: Text('Review'),
@@ -102,7 +108,8 @@ class _QuizzPageState extends State<QuizzPage> {
 }
 
 class QuizArea extends StatefulWidget {
-  const QuizArea({super.key});
+  String mode;
+  QuizArea({super.key, required this.mode});
 
   @override
   State<QuizArea> createState() => _QuizAreaState();
@@ -159,12 +166,12 @@ class Stage {
 
   bool get isComplete => items.every((item) => item.attempts >= 3);
 
-  Future<void> populateStage(getData) async {
+  Future<void> populateStage(getData, mode) async {
     // handle edge cases
     // fetch user preferred mode
     List kanjiList=[];
-    try {kanjiList = await getData('quiz/jlpt/$name/1');}
-    catch (e) {kanjiList = await getData('quiz/jlpt/new/1'); newFlag = true;}
+    try {kanjiList = await getData('quiz/$mode/$name/1');}
+    catch (e) {kanjiList = await getData('quiz/$mode/new/1'); newFlag = true;}
 
     List<QuizItem> tempItems = [];
     QuizItem quizItem;
@@ -240,10 +247,11 @@ class QuizController {
     int answerType,
     int count,
     List<QuizItem> allItems,
+    String ans
   ) {
     List<String> options = [];
 
-    while (options.length <= count) {
+    while (options.length < count) {
       var candidate = allItems[random.nextInt(allItems.length)];
       String value = '';
       if (answerType == 0) {
@@ -260,13 +268,15 @@ class QuizController {
       if (!options.contains(value)) options.add(value);
     }
 
+    options.add(ans);
+
     options.shuffle(random);
     return options;
   }
 
   void changeQuestion() {
     currentItem.attempts++;
-    print('old :currentitemindex : ${currentItemIndex}, currentStageIndex : ${currentStageIndex}');
+    //print('old :currentitemindex : ${currentItemIndex}, currentStageIndex : ${currentStageIndex}');
 
     if (!quizOver) {
       if (!currentStage.isComplete) {
@@ -276,14 +286,14 @@ class QuizController {
         else {currentItemIndex ++;} // increment item
       } else {currentStageIndex ++; currentItemIndex=0;} // increment stage
     }
-    print('new :currentitemindex : ${currentItemIndex}, currentStageIndex : ${currentStageIndex}');
+    //print('new :currentitemindex : ${currentItemIndex}, currentStageIndex : ${currentStageIndex}');
   }
 }
 
 class _QuizAreaState extends State<QuizArea> {
   QuizController quiz = QuizController();
   Future<void> initializeQuiz() async {
-    for (Stage stage in quiz.stages) {await stage.populateStage(getData);}
+    for (Stage stage in quiz.stages) {await stage.populateStage(getData, widget.mode);}
     await setQuestion();
   }
 
@@ -339,6 +349,7 @@ class _QuizAreaState extends State<QuizArea> {
       // selecting single answer for on/kun
       // meaning takes list answers
       answer = answers[random.nextInt(answers.length)];
+      print('ans $answer');
       answers.remove(answer);
       bool altNull = answers.isEmpty;
       hintText = altNull? '' : 'alternative: ${answers.join(', ')}';
@@ -354,9 +365,11 @@ class _QuizAreaState extends State<QuizArea> {
 
       if (questionType == 1) {
         mcqOptions = [];
-        mcqOptions.add(answer);
-        print('before generating options');
-        mcqOptions = quiz.generateOptions(answerType, 3, allKanji);
+        //mcqOptions.add(answer);
+        print('bans $answer');
+        mcqOptions = quiz.generateOptions(answerType, 3, allKanji, answer);
+        print('after');
+        print(mcqOptions);
         mcqOptions.shuffle();
         print('mcq ok');
       } else if (questionType == 2) {
@@ -405,40 +418,38 @@ class _QuizAreaState extends State<QuizArea> {
 
   // for input and mcq
   void checkAns(String userAns) {
-    bool meaning = questionType == 2;
-     Map postData = {"kanji_id": quiz.currentItem.id, "correct": 0, "wrong": 0};
+    bool meaning = answerType == 2;
+    Map postData = {"kanji_id": quiz.currentItem.id, "correct": 0, "wrong": 0, 'mistake': ''};
     setState(() {
-      if (!meaning) {
-          userAns = kanaKit.toKatakana(userAns);
-         if (userAns == answer) {
+       if (!meaning) {userAns = kanaKit.toKatakana(userAns);}
+        if (userAns == answer) {
         ansColor = Color(0xFF3ACB9E);
         postData['correct'] = 1;
       } else {
         ansColor = Color(0xFFCB3A74);
         postData['wrong'] = 1;
+        postData['mistake'] = userAns;
       }
+
+      // updating text
+      if (!meaning) {
         if (answerType == 0) {
           subText = 'onyomi: ${quiz.currentItem.onReadings.join(', ')}';
+          sendData('1/onyomi', postData);
         } else if (answerType == 1) {
           subText = 'kunyomi: ${quiz.currentItem.kunReadings.join(', ')}';
+          sendData('1/kunyomi', postData);
         }
         hintText = quiz.currentItem.meanings.join(', '); 
       } else {
+        print('meaning being checked');
         hintText = 'kunyomi: ${quiz.currentItem.kunReadings.join(', ')} | onyomi: ${quiz.currentItem.onReadings.join(', ')}';
         subText = quiz.currentItem.meanings.join(', ');
-        if (answers.contains(userAns)) {
-          ansColor = Color(0xFF3ACB9E);
-          postData['correct'] = 1;
-          }
-        else {
-          ansColor = Color(0xFFCB3A74);
-          postData['wrong'] = 1;
-          }
+        sendData('1/meaning', postData);
       }
       userText = userAns;
       answered = true;
     });
-    sendData('user_kanji/1/onyomi', postData);
   }
 
   void changeQuestion() {
@@ -519,7 +530,7 @@ class _QuizAreaState extends State<QuizArea> {
               if(questionType == 4)
               Text('Loading....', style: TextStyle(fontSize: 50),),
               if (questionType == 3)
-              DisplayKanji(kanji: quiz.currentStage.items[quiz.currentItemIndex], changeQuestion: changeQuestion),
+              DisplayKanji(kanji: quiz.currentStage.items[quiz.currentItemIndex], changeQuestion: changeQuestion,),
               if (questionType == 0)
                 InputQ(svgId: svgId, relevantRads: relevantRads, answered: answered, changeQuestion: changeQuestion, checkAns: (userAns) {checkAns(userAns);}, userText: userText, subText: subText, ansColor: ansColor, hintText: hintText),
               if (questionType == 1)
@@ -534,20 +545,45 @@ class _QuizAreaState extends State<QuizArea> {
   }
 }
 
-class DisplayKanji extends StatelessWidget {
+class DisplayKanji extends StatefulWidget {
   final QuizItem kanji;
   final Function changeQuestion;
   const DisplayKanji({super.key, required this.kanji, required this.changeQuestion});
 
   @override
+  State<DisplayKanji> createState() => _DisplayKanjiState();
+}
+
+class _DisplayKanjiState extends State<DisplayKanji> {
+  bool showNote = false;
+
+  TextEditingController noteController = TextEditingController();
+
+  @override
   Widget build(BuildContext context) {
     return Column(
     children: [
-    Text(kanji.kanji),
-    Text('onyomi: ${(kanji.onReadings).join(', ')}'),
-    Text('kunyomi: ${(kanji.kunReadings).join(', ')}'),
-    Text('meaning: ${(kanji.meanings).join(', ')}'),
-    OutlinedButton(onPressed: (){changeQuestion();}, child: Text('next')),
+    Text(widget.kanji.kanji, style: TextStyle(fontSize: 30),),
+    Text('onyomi: ${(widget.kanji.onReadings).join(', ')}', style: TextStyle(fontSize: 30),),
+    Text('kunyomi: ${(widget.kanji.kunReadings).join(', ')}', style: TextStyle(fontSize: 30),),
+    Text('meaning: ${(widget.kanji.meanings).join(', ')}', style: TextStyle(fontSize: 30),),
+    OutlinedButton(onPressed: (){widget.changeQuestion();}, child: Text('next')),
+    OutlinedButton(onPressed: () {setState(() {showNote = !showNote;});}, child: Text('Add note')),
+    if (showNote)
+    SizedBox(
+      height: 150,
+      width: 300,
+      child: TextField(
+        keyboardType: TextInputType.multiline,
+        maxLines: null,
+        expands: true,  
+        controller: noteController)),
+    if (showNote)
+    OutlinedButton(onPressed: () {
+      Map payload = {'note': noteController.text, 'id': widget.kanji.id};
+      try {sendData('1/kanji/note', payload);}
+      catch (e) {print(e);}
+    }, child: Text('Confirm note'))
     ],
     );
   }
@@ -789,8 +825,8 @@ class _McqDragnDropState extends State<McqDragnDrop> {
                     hidden
                         ? Container(
                             margin: EdgeInsets.all(3),
-                            width: 80,
-                            height: 20,
+                            width: 150,
+                            height: 35,
                             child: makeInputField(widget.readingController, widget.readingBg),
                           )
                         : SizedBox(width: 150, child: Text(widget.options['readings'].join(', '), softWrap: true,)),
@@ -802,8 +838,8 @@ class _McqDragnDropState extends State<McqDragnDrop> {
                   child: !hidden
                       ? Container(
                           margin: EdgeInsets.all(3),
-                          width: 80,
-                          height: 20,
+                          width: 150,
+                          height: 35,
                           child: makeInputField(widget.meaningController, widget.meaningBg),
                         )
                       : SizedBox(width: 150, child: Text(widget.options['meanings'].join(', '), softWrap: true,)),
@@ -871,7 +907,7 @@ class _McqDnDContainerState extends State<McqDnDContainer> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.32,
+      width: MediaQuery.of(context).size.width * 0.43,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,

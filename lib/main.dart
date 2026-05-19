@@ -93,14 +93,66 @@ class _MainAppState extends State<MainApp> {
   }
 }
 
-class MainArea extends StatelessWidget {
-  final List<Widget> _pageWidgets = const [
-    QuizzPage(),
+class MainArea extends StatefulWidget {
+  const MainArea({super.key});
+
+  @override
+  State<MainArea> createState() => _MainAreaState();
+}
+
+class _MainAreaState extends State<MainArea> {
+  late int userLevel;
+  late String mode;
+  late int quizLevel;
+  bool loading = true;
+
+  String loadingMsg = 'Loading...';
+
+  Future<void> loadUser() async {
+    print('loading user');
+    List<dynamic> user = await getData('1');
+    print('data fetched');
+    setState(() {
+      try {
+        print('setting values');
+        userLevel = user[0]['level'];
+        mode = user[0]['mode'];
+        userLevelNotifier.value = user[0]['level'];
+        modeNotifier.value = user[0]['mode'];
+        quizLevelNotifier.value = userLevel;
+        quizLevel = userLevel;
+      } catch (e) {
+        print(e.toString());
+        mode = e.toString();
+      }
+      print('user data set ok');
+        loading = false;
+      setupWidgets();
+      print('setting widgets ok');
+      if (modeNotifier.value == 'none') {pageNotifier = ValueNotifier(3); print('new user');} // go to setup page for new user
+    });
+  }
+
+  List<Widget> _pageWidgets = [
     KanjiPage(),
-    SettingsPage(),
   ];
 
-  const MainArea({super.key});
+  void setupWidgets () {
+    setState(() {
+        _pageWidgets = [
+        QuizzPage(quizLevel: quizLevelNotifier, mode: modeNotifier),
+        KanjiPage(),
+        SettingsPage(level: userLevelNotifier, mode: modeNotifier, reload: loadUser),
+        SetUpUserPage(level: userLevelNotifier, mode: modeNotifier, loadUser: loadUser,)
+      ];
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadUser();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +166,11 @@ class MainArea extends StatelessWidget {
           decoration: componentDeco,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [_pageWidgets[index]],
+            children: [
+              if (loading)
+              Text('Loading...'),
+              if (!loading)
+              _pageWidgets[index]],
           ),
         );
       },
@@ -124,6 +180,14 @@ class MainArea extends StatelessWidget {
 
 // navigation notifier
 ValueNotifier<int> pageNotifier = ValueNotifier(0);
+
+ValueNotifier<String> modeNotifier = ValueNotifier('none');
+ValueNotifier<int> userLevelNotifier = ValueNotifier(0);
+ValueNotifier<int> quizLevelNotifier = ValueNotifier(0);
+
+ValueNotifier<int> totalKanjiNotif = ValueNotifier(0);
+ValueNotifier<int> totalKanjiVocab = ValueNotifier(0);
+
 
 class SideBar extends StatefulWidget {
   const SideBar({super.key});
@@ -174,7 +238,10 @@ class _SideBarState extends State<SideBar> {
             margin: EdgeInsets.all(5),
             width: 200, // this may break idk
             child: OutlinedButton.icon(
-              onPressed: () => {pageNotifier.value = 0},
+              onPressed: () => {
+                if (modeNotifier.value == 'none') {pageNotifier.value = 3}
+                else {pageNotifier.value = 0}
+                },
               label: Text('Home'),
               icon: Icon(Icons.home),
             ),
@@ -230,10 +297,9 @@ class _SideBarState extends State<SideBar> {
                             } else if (snapshot.hasError) {
                               return Text(
                                 '${snapshot.error}',
-                                style: TextStyle(fontSize: 35),
                               );
                             } else {
-                              return CircularProgressIndicator();
+                              return Text('...');
                             }
                           },
                         ),
@@ -298,7 +364,10 @@ class _SideBarState extends State<SideBar> {
                                   100,
                             ),
                           );
-                        } else {
+                        } else if (snapshot.hasError) {
+                          return Text('${snapshot.error}');
+                        } 
+                        else {
                           return LinearProgressIndicator();
                         }
                       },
@@ -344,6 +413,111 @@ class QuizModeBar extends StatelessWidget {
     );
   }
 }
+
+class SetUpUserPage extends StatefulWidget {
+  ValueNotifier<int> level;
+  ValueNotifier<String> mode;
+  Future<void> Function () loadUser;
+  SetUpUserPage({super.key, required this.loadUser, required this.level, required this.mode});
+
+  @override
+  State<SetUpUserPage> createState() => _SetUpUserPageState();
+}
+
+class _SetUpUserPageState extends State<SetUpUserPage> {
+ @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text('Welcom to KanTan a kanji/vocabulary learning tool'),
+        Text("If you've never studied kanji before  select your preferred mode and start your first quiz"),
+        Text("if unsure pick JLPT"),
+        Text('Mode: ${widget.mode.value}, Level: ${widget.level.value}'),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+             OutlinedButton(onPressed: () {
+              setState(() {
+                widget.mode.value = 'jlpt';
+              });
+                try {sendData('1/mode/${widget.mode.value}', {'mode': widget.mode.value});}
+                catch (e) {print(e.toString());}
+              }, child: Text('JLPT')),
+               OutlinedButton(onPressed: () {
+                setState(() {
+                widget.mode.value = 'grade';
+              });
+                   try {sendData('1/mode/${widget.mode.value}', {'mode': widget.mode.value});}
+                catch (e) {print(e.toString());}
+              }, child: Text('Joyo'))
+          ],
+        ),
+        OutlinedButton(onPressed: () {setState(() {
+          try {
+            widget.level.value = 5;
+            sendData('1/level/${widget.level.value}', {});
+            } // match this with grade system
+          catch (e) {print(e.toString());}
+          print('send data ok');
+          pageNotifier.value = 0;
+          print('change page notif ok');
+          widget.loadUser();
+        });}, child: Text('Start Quiz')),
+        Text("If you have some knowledge of kanji you can either manually choose the ones you know or skip ahead to a level using either the JLPT or Joyo system"),
+        // change this depending on selected mode
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton(onPressed: () {
+              setState(() {
+                widget.level.value = 5;
+            sendData('1/level/${widget.level.value}', {});
+              });
+            }, child: Text('N5')),
+            OutlinedButton(onPressed: () {
+              setState(() {
+                widget.level.value = 4;
+                sendData('1/level/${widget.level.value}', {});
+              });
+            }, child: Text('N4')),
+            OutlinedButton(onPressed: () {
+              setState(() {
+                widget.level.value = 3;
+                sendData('1/level/${widget.level.value}', {});
+              });
+            }, child: Text('N3')),
+            OutlinedButton(onPressed: () {
+              setState(() {
+                widget.level.value = 2;
+                sendData('1/level/${widget.level.value}', {});
+              });
+            }, child: Text('N2')),
+            OutlinedButton(onPressed: () {
+              setState(() {
+                widget.level.value = 1;
+                sendData('1/level/${widget.level.value}', {});
+              });
+            }, child: Text('N1')),
+          ],
+        ),
+        OutlinedButton(onPressed: () {setState(() {
+          pageNotifier.value = 2;
+        });}, child: Text('Manual select')),
+        OutlinedButton(onPressed: () {
+          for (var i=5;i>widget.level.value;i--) {
+            print('i: $i, level: ${widget.level.value}');
+            try {sendData('1/jlpt/$i', {});}
+            catch (e) {print(e.toString());}
+          }
+          setState(() {
+            pageNotifier.value = 0;
+          });
+        }, child: Text('Start learning'))
+      ],
+    );
+  }}
 
 // decorations
 final componentDeco = BoxDecoration(

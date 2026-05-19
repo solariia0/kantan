@@ -42,8 +42,8 @@ def fake_connect(result=None):
     yield FakeConnection(result)
 
 def patch_engine_connect(monkeypatch, result=None):
-    import myapp
-    monkeypatch.setattr(myapp.engine, "connect", lambda: fake_connect(result))
+    import app
+    monkeypatch.setattr(app.engine, "connect", lambda: fake_connect(result))
 
 # Tests
 def test_read_root():
@@ -56,7 +56,7 @@ def test_get_user(monkeypatch):
     patch_engine_connect(monkeypatch, FakeResult(rows))
     r = client.get("/1")
     assert r.status_code == 200
-    assert r.json() == [{"id": 1, "name": "alice"}]
+    assert r.json() == [{"id": 1, "username": "alice", 'mode': 'jlpt', 'level': 5}]
 
 def test_get_kanji_jlpt(monkeypatch):
     rows = [FakeRow({"literal": "日"}), FakeRow({"literal": "月"})]
@@ -65,12 +65,6 @@ def test_get_kanji_jlpt(monkeypatch):
     assert r.status_code == 200
     assert r.json() == [{"literal": "日"}, {"literal": "月"}]
 
-def test_get_kanji_id(monkeypatch):
-    rows = [FakeRow({"id": 5, "meanings": "sun"})]
-    patch_engine_connect(monkeypatch, FakeResult(rows))
-    r = client.get("/kanji_id", params=[("kanji", "日"), ("kanji", "月")])
-    assert r.status_code == 200
-    assert r.json() == [{"id": 5, "meanings": "sun"}]
 
 def test_kanji_info(monkeypatch):
     rows = [FakeRow({"id": 123, "literal": "日", "onreadings": "ニチ", 'kunreadings': 'ニチ', 'meanings': 'day'})]
@@ -94,14 +88,14 @@ def test_post_mode(monkeypatch):
 #update
 def test_post_user_kanji_onyomi(monkeypatch):
     patch_engine_connect(monkeypatch, FakeResult([]))
-    payload = {"kanji_id": 10, "correct": 1, "wrong": 0}
-    r = client.post("/user_kanji/3/onyomi", json=payload)
+    payload = {"kanji_id": 10, "correct": 1, "wrong": 0, "mistake": ""}
+    r = client.post("/1/onyomi", json=payload)
     assert r.status_code in (200, 201, 204)
 
 def test_post_user_kanji_kunyomi(monkeypatch):
     patch_engine_connect(monkeypatch, FakeResult([]))
-    payload = {"kanji_id": 11, "correct": 0, "wrong": 1}
-    r = client.post("/user_kanji/3/kunyomi", json=payload)
+    payload = {"kanji_id": 11, "correct": 0, "wrong": 1, "mistake": ""}
+    r = client.post("/1/kunyomi", json=payload)
     assert r.status_code in (200, 201, 204)
 
 def test_total_stats(monkeypatch):

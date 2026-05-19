@@ -3,16 +3,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text, create_engine
 from fastapi.middleware.cors import CORSMiddleware
 
-
 DATABASE_URL = "postgresql+psycopg2://jmdictdb:jmdict@localhost:5432/jmdict"
 engine = create_engine(DATABASE_URL, echo=True) 
 
 app = FastAPI()
 
-
-origins = [
-    "http://localhost:44903",
-]
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +31,88 @@ def get_user(user_id: int):
         result_dicts = [dict(row._mapping) for row in result]
     return result_dicts
 
+@app.post('/{user_id}/reset')
+def rest_user(user_id: int):
+    rest_user = text("""
+UPDATE users SET mode = 'none', level = 0 WHERE id = :user_id;
+""")
+    rest_kanji = text("""
+DELETE FROM user_kanji
+WHERE user_id = :user_id""")
+    with engine.connect() as connection:
+            connection.execute(rest_user, {'user_id': user_id})
+            connection.execute(rest_kanji, {'user_id': user_id})
+            connection.commit()
+
+
+@app.post('/{user_id}/mode/{mode}')
+def update_mode(user_id: int, mode: str):
+    sql = text(
+        """
+        UPDATE users SET mode = :mode WHERE id = :user_id
+        """
+    )
+    with engine.connect() as connection:
+            connection.execute(sql, {'user_id': user_id, 'mode': mode})
+            connection.commit()
+
+@app.post('/{user_id}/level/{level}')
+def update_mode(user_id: int, level: str):
+    sql = text(
+        """
+        UPDATE users SET level = :level WHERE id = :user_id
+        """
+    )
+    with engine.connect() as connection:
+            connection.execute(sql, {'user_id': user_id, 'level': level})
+            connection.commit()
+
+@app.post('/{user_id}/jlpt/{level}')
+def bulk_add_jlpt(user_id: int, level: int):
+    sql = text("""
+   INSERT INTO user_kanji (user_id, kanji_id, on_attempts, on_correct, kun_attempts, kun_correct, meanign_correct, meaning_attempts, manually_added)
+        SELECT :user_id, k.id, 1, 1, 1, 1, 1, 1, TRUE
+        FROM kanjidic2 k
+        WHERE k.jlptLevel = :level
+        ON CONFLICT (user_id, kanji_id) DO NOTHING;
+        """)
+
+    with engine.connect() as connection:
+            connection.execute(sql, {'user_id': user_id, 'level': level})
+            connection.commit()
+
+@app.post('/{user_id}/grade/{level}')
+def bulk_add_jlpt(user_id: int, level: int):
+    sql = text("""
+        INSERT INTO user_kanji (user_id, kanji_id, on_attempts, on_correct, kun_attempts, kun_correct, meanign_correct, meaning_attempts, manually_added)
+        SELECT :user_id, k.id, 1, 1, 1, 1, 1, 1, TRUE
+        FROM kanjidic2 k
+        WHERE k.grade = :level
+        ON CONFLICT (user_id, kanji_id) DO NOTHING;
+        """)
+
+    with engine.connect() as connection:
+            connection.execute(sql, {'user_id': user_id, 'level': level})
+            connection.commit()
+
+
+@app.post('/{user_id}/kanji/note')
+def add_kanji_note(payload: dict, user_id: int):
+    insert_sql = text(
+        """
+        INSERT INTO user_kanji (user_id, kanji_id, note)
+        VALUES (:user_id, :kanji_id, :note)
+        ON CONFLICT DO NOTHING
+        """)
+    
+    kanji_id = payload['id']
+    note = payload['note']
+
+    payload = {"user_id": user_id, "kanji_id": kanji_id, 'note': note}
+
+    with engine.connect() as connection:
+        connection.execute(insert_sql, payload)
+        connection.commit()
 
 # get kanji values for managing kanji
 @app.get("/jlpt/{level}/{page_number}")
@@ -107,56 +184,83 @@ def get_kanji(user_id: int, kanji_list: dict = Body(...)):
         connection.execute(insert_sql, data)
         connection.commit()
 
-@app.post("/{user_id}/mode/{mode}")
-def update_mode(user_id: int, mode: str):
-    insert_sql = text(
-        """
-        INSERT INTO users (id, mode)
-        VALUES (:user_id, :mode)
-        ON CONFLICT DO NOTHING
-        """)
-
-    with engine.connect() as connection:
-        connection.execute(insert_sql,  {"user_id": user_id, "mode": mode})
-        connection.commit()
 
 # turn this into one function with url query?
 #update
-@app.post("/user_kanji/{user_id}/onyomi")
+@app.post("/{user_id}/onyomi")
 def get_kanji(user_id: int, body: dict = Body(...)):
     insert_sql = text(
         """
-        INSERT INTO user_kanji (user_id, kanji_id, on_attempts, on_correct, on_wrong)
-        VALUES (:user_id, :kanji_id, 1, :on_correct, :on_wrong)
-        ON CONFLICT (user_id, kanji_id) DO UPDATE 
-        SET
-            on_attempts = user_kanji.on_attempts + 1,
-            on_correct = user_kanji.on_correct + :on_correct,
-            on_wrong = user_kanji.on_wrong + :on_wrong
-        WHERE user_kanji.user_id = :user_id AND user_kanji.kanji_id = :kanji_id;
+   INSERT INTO user_kanji (user_id, kanji_id, on_attempts, on_correct, on_wrong, reading_mistakes)
+VALUES (:user_id, :kanji_id, 1, :on_correct, :on_wrong, ARRAY[:mistake])
+ON CONFLICT (user_id, kanji_id) DO UPDATE
+SET
+on_attempts = user_kanji.on_attempts + 1,
+on_correct = user_kanji.on_correct + :on_correct,
+on_wrong = user_kanji.on_wrong + :on_wrong,
+reading_mistakes = array_append(user_kanji.reading_mistakes, :mistake);
         """)
     
-    data = {"user_id": user_id, "kanji_id": body['kanji_id'], "on_correct": body["correct"], "on_wrong": body["wrong"]}
+    data = {
+        "user_id": user_id,
+        "kanji_id": body['kanji_id'],
+        "on_correct": body["correct"],
+        "on_wrong": body["wrong"],
+        "mistake": body['mistake']
+        }
 
     with engine.connect() as connection:
         connection.execute(insert_sql, data)
         connection.commit()
 
-@app.post("/user_kanji/{user_id}/kunyomi")
+@app.post("/{user_id}/kunyomi")
 def get_kanji(user_id: int, body: dict = Body(...)):
     insert_sql = text(
         """
-        INSERT INTO user_kanji (user_id, kanji_id, kun_attempts, kun_correct, kun_wrong)
-        VALUES (:user_id, :kanji_id, 1, :kun_correct, :kun_wrong)
+        INSERT INTO user_kanji (user_id, kanji_id, kun_attempts, kun_correct, kun_wrong, reading_mistakes)
+        VALUES (:user_id, :kanji_id, 1, :kun_correct, :kun_wrong, ARRAY[:mistake])
         ON CONFLICT (user_id, kanji_id) DO UPDATE 
         SET
             kun_attempts = user_kanji.kun_attempts + 1,
             kun_correct = user_kanji.kun_correct + :kun_correct,
-            kun_wrong = user_kanji.kun_wrong + :kun_wrong
+            kun_wrong = user_kanji.kun_wrong + :kun_wrong,
+            reading_mistakes = array_append(reading_mistakes, :mistake)
         WHERE user_kanji.user_id = :user_id AND user_kanji.kanji_id = :kanji_id;
         """)
     
-    data = {"user_id": user_id, "kanji_id": body['kanji_id'], "kun_correct": body["correct"], "kun_wrong": body["wrong"]}
+    data = {
+        "user_id": user_id,
+        "kanji_id": body['kanji_id'],
+        "kun_correct": body["correct"],
+        "kun_wrong": body["wrong"],
+        "mistake": body['mistake']
+        }
+
+    with engine.connect() as connection:
+        connection.execute(insert_sql, data)
+        connection.commit()
+
+@app.post("/{user_id}/meaning")
+def get_kanji(user_id: int, body: dict = Body(...)):
+    insert_sql = text(
+        """
+       INSERT INTO user_kanji (user_id, kanji_id, meaning_attempts, meaning_correct, meaning_wrong, meaning_mistakes)
+VALUES (:user_id, :kanji_id, 1, :mean_correct, :mean_wrong, ARRAY[:mistake])
+ON CONFLICT (user_id, kanji_id) DO UPDATE
+SET
+meaning_attempts = user_kanji.meaning_attempts + 1,
+meaning_correct = user_kanji.meaning_correct + :mean_correct,
+meaning_wrong = user_kanji.meaning_wrong + :mean_wrong,
+meaning_mistakes = array_append(user_kanji.meaning_mistakes, :mistake);
+        """)
+    
+    data = {
+        "user_id": user_id,
+        "kanji_id": body['kanji_id'],
+        "mean_correct": body["correct"],
+        "mean_wrong": body["wrong"],
+        "mistake": body['mistake']
+        }
 
     with engine.connect() as connection:
         connection.execute(insert_sql, data)
@@ -408,6 +512,87 @@ SELECT
 )
 ) vocab order by random() limit 3
 """)
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"user_id": user_id}).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
+
+@app.get('/{user_id}/jlpt/review/onyomi')
+def review_on(user_id: int):
+    sql = text(
+        """WITH filtered_radicals AS (
+    SELECT
+        krad.krad_literal AS kanji,
+        filtered.user_radicals
+    FROM kradfile krad
+    LEFT JOIN LATERAL (
+        SELECT array_agg(k.literal) AS user_radicals
+        FROM kanjidic2 k
+        JOIN user_kanji u ON u.kanji_id = k.id
+        WHERE u.user_id = :user_id
+        AND k.literal = ANY(krad.radicals)
+    ) AS filtered ON TRUE
+) SELECT 
+    k.id,
+    k.literal,
+    k.onreadings,
+    k.kunreadings,
+    k.meanings,
+    krad.radicals,
+    f.user_radicals
+FROM kanjidic2 k
+JOIN kradfile krad ON krad.krad_literal = k.literal
+JOIN filtered_radicals f ON f.kanji = krad.krad_literal
+JOIN user_kanji u ON u.kanji_id = k.id AND u.user_id = :user_id
+WHERE k.jlptLevel = (
+    SELECT level FROM users WHERE id = :user_id
+) AND u.on_accuracy < 70
+order by random()
+LIMT 3
+"""
+    )
+
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"user_id": user_id}).all()
+        result_dicts = [dict(row._mapping) for row in result]
+    return result_dicts
+
+
+@app.get('/{user_id}/jlpt/review/onyomi')
+def review_on(user_id: int):
+    sql = text(
+        """WITH filtered_radicals AS (
+    SELECT
+        krad.krad_literal AS kanji,
+        filtered.user_radicals
+    FROM kradfile krad
+    LEFT JOIN LATERAL (
+        SELECT array_agg(k.literal) AS user_radicals
+        FROM kanjidic2 k
+        JOIN user_kanji u ON u.kanji_id = k.id
+        WHERE u.user_id = :user_id
+        AND k.literal = ANY(krad.radicals)
+    ) AS filtered ON TRUE
+) SELECT 
+    k.id,
+    k.literal,
+    k.onreadings,
+    k.kunreadings,
+    k.meanings,
+    krad.radicals,
+    f.user_radicals
+FROM kanjidic2 k
+JOIN kradfile krad ON krad.krad_literal = k.literal
+JOIN filtered_radicals f ON f.kanji = krad.krad_literal
+JOIN user_kanji u ON u.kanji_id = k.id AND u.user_id = :user_id
+WHERE k.jlptLevel = (
+    SELECT level FROM users WHERE id = :user_id
+) AND u.kun_accuracy < 70
+order by random()
+limit 3
+"""
+    )
+
     with engine.connect() as conn:
         result = conn.execute(sql, {"user_id": user_id}).all()
         result_dicts = [dict(row._mapping) for row in result]
